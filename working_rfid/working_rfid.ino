@@ -4,9 +4,9 @@
 //go over decode and make more reliable
 //sleep mode
 //arduino asleep but leaves rfid on interupt on rfid read?
-#include <RFIDuino.h> //include the RFIDuino Library
+//#include <RFIDuino.h> //include the RFIDuino Library
 #include <Wire.h>
-#include "RTClib.h"
+//#include "RTClib.h"
 #include <SPI.h>
 #include <SD.h>
 
