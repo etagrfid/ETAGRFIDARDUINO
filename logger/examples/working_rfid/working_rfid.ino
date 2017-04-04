@@ -5,8 +5,6 @@
 //sleep mode
 //arduino asleep but leaves rfid on interupt on rfid read?
 #include <logger.h>
-//#include <RTClib.h>
-#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 
@@ -19,8 +17,7 @@ File dataFile = SD.open("datalog.txt", FILE_WRITE);
 
 
 clock rtc;
-//clock rtc;
-//char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 void setup()
 {
@@ -30,13 +27,12 @@ void setup()
     return;
   }
   Serial.println("Please swipe your RFID Tag.");
-/*  if (! rtc.begin()) {
+  if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
-  }*/
+  }
   String dataString = "test string";
   dataFile = SD.open("datalog.txt", FILE_WRITE);
-  /*
     // if the file is available, write to it:
     if (dataFile) {
       dataFile.println(dataString);
@@ -47,7 +43,6 @@ void setup()
     else {
       Serial.println("error opening datalog.txt");
     }
-  */
 }
 
 void loop()
@@ -63,7 +58,7 @@ void loop()
     tagID = ((long)tagData[1] << 24) + ((long)tagData[2] << 16) + ((long)tagData[3] << 8) + tagData[4];
     Serial.print(tagID);
     Serial.print("\n\r\n\r");
-    /*DateTime now = rtc.now();
+    DateTime now = rtc.now();
     Serial.print(now.year(), DEC);
     Serial.print('/');
     Serial.print(now.month(), DEC);
@@ -94,7 +89,7 @@ void loop()
     dataFile.print(now.minute(), DEC);
     dataFile.print(':');
     dataFile.print(now.second(), DEC);
-    dataFile.println();*/
+    dataFile.println();
     dataFile.close();
     delay(100);
   }
