@@ -1,4 +1,3 @@
-
 logger	KEYWORD1
 decodeTag	KEYWORD2
 errorSound	KEYWORD2

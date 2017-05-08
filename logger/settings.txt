@@ -1,0 +1,30 @@
+//maximum length of setting is 16 characters
+//mode to enter to on boot:
+	// 0 => data logging
+	// 1 => data access
+	// 2 => change settings
+	// 3 => Check tag
+	DEFAULT_MODE: 0
+
+//when the logger should be on or off. stored as string of '-' conjoined 24h times 
+	POWER_SCHEDULE: "4:10-5:30, 14:00-15:00"
+
+//enables JSON and CSV recording, if neither are enabled logger will default to both when recording
+	JSON_RECORD: 1
+	CSV_RECORD: 1
+
+//time in milliseconds between attempted RFID card reads
+	RFID_READ_FREQ: 200
+
+//battery voltage considered low in mV
+	LOW_BATTERY: 500
+
+//location of logger in degrees
+	LOGGER_LONG: -80.60301463292694
+	LOGGER_LAT: 28.60739886098215
+
+//what to name the files logged
+	FILE_PREFIX: datalog
+
+//number of hours stored in each file
+	HOURS_PER_FILE: 24

@@ -13,41 +13,38 @@ logger L;   //pins are set for the board in the library
 byte tagData[5]; //Holds the ID numbers from the tag
 unsigned long tagID;
 const int chipSelect = 10;
-File dataFile = SD.open("datalog.txt", FILE_WRITE);
-
+File dataFile;// = SD.open("datalog.txt", FILE_WRITE);
 
 clock rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+const char daysOfTheWeek[7][12] PROGMEM = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 void setup()
 {
   Serial.begin(9600);
+  while (!Serial);
   if (!SD.begin(chipSelect)) {
-    Serial.println("SD card failed, or not present");
+    const char error[31] PROGMEM = "SD card failed, or not present";
+    Serial.println(error);
     return;
   }
-  Serial.println("Please swipe your RFID Tag.");
+  const char greeting[28] PROGMEM = "Please swipe your RFID Tag.";
+  Serial.println(greeting);
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
   }
-  String dataString = "test string";
-  dataFile = SD.open("datalog.txt", FILE_WRITE);
-    // if the file is available, write to it:
-    if (dataFile) {
-      dataFile.println(dataString);
-      // print to the serial port too:
-      Serial.println(dataString);
-    }
-    // if the file isn't open, pop up an error:
-    else {
-      Serial.println("error opening datalog.txt");
-    }
+
+  dataFile = SD.open("data.csv", FILE_WRITE);
+  dataFile.print(':\n');
+  dataFile.close();
 }
 
 void loop()
 {
-
+  if (Serial.available()) {
+    L.capture_command();
+  }
+  
   //scan for a tag - if a tag is sucesfully scanned, return a 'true' and proceed
   if (L.scanForTag(tagData) == true) {
     Serial.print("RFID Tag Data: "); //print a header to the Serial port.
@@ -65,7 +62,7 @@ void loop()
     Serial.print('/');
     Serial.print(now.day(), DEC);
     Serial.print(" (");
-    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+    //    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
     Serial.print(") ");
     Serial.print(now.hour(), DEC);
     Serial.print(':');
@@ -73,9 +70,7 @@ void loop()
     Serial.print(':');
     Serial.print(now.second(), DEC);
     Serial.println();
-    dataFile = SD.open("datalog.txt", FILE_WRITE);
-    String dataString = "test string";
-    dataFile.println(dataString);
+    dataFile = SD.open("data.csv", FILE_WRITE);
     dataFile.print(now.year(), DEC);
     dataFile.print('/');
     dataFile.print(now.month(), DEC);
@@ -91,6 +86,6 @@ void loop()
     dataFile.print(now.second(), DEC);
     dataFile.println();
     dataFile.close();
-    delay(100);
+    delay(L.get_RFID_READ_FREQ());
   }
 }// end loop()

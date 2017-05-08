@@ -4,30 +4,6 @@
 #define DELAYVAL    320   //384 //standard delay for manchster decode
 #define TIMEOUT     1000  //standard timeout for manchester decode
 
-class logger{
-	public:
-
-		logger();
-			//i/o
-		void errorSound(); 					//play an error sound to the buzzer
-		void successSound(); 				//play a sucess sound ot the buzzer
-
-		//low level deocde functions
-		bool decodeTag(unsigned char *buf);	//low level tag decode
-		void transferToBuffer(byte *tagData, byte *tagDataBuffer);	//transfer data from one array to another
-		bool compareTagData(byte *tagData1, byte *tagData2);			//compate 2 arrays
-
-		//higher level tag scanning / reporting
-		bool scanForTag(byte *tagData);
-
-		//user output pin values, variables as they will change depending on which hardware is used
-private:
-	//pins to connect Arduino to the EM4095 chip , variables as they will change depending on which hardware is used
-	int demodOut;
-	int shd;
-	int mod;
-	int rdyClk;
-};
 //
 //CLOCK
 //
@@ -90,21 +66,24 @@ class TimeSpan {
     	int32_t _seconds;
 };
 
-enum clockPinMode { OFF = 0x00, ON = 0x80, SquareWave1HZ = 0x10, SquareWave4kHz = 0x11, SquareWave8kHz = 0x12, SquareWave32kHz = 0x13 };
+//rtc
+#define PCF8523_ADDRESS       0x68
+#define PCF8523_CLKOUTCONTROL 0x0F
+#define PCF8523_CONTROL_3     0x02
+
+enum Pcf8523SqwPinMode { PCF8523_OFF = 7, PCF8523_SquareWave1HZ = 6, PCF8523_SquareWave32HZ = 5, PCF8523_SquareWave1kHz = 4, PCF8523_SquareWave4kHz = 3, PCF8523_SquareWave8kHz = 2, PCF8523_SquareWave16kHz = 1, PCF8523_SquareWave32kHz = 0 };
 
 class clock {
-	public:
-	    boolean begin(void);
-	    static void adjust(const DateTime& dt);
-	    uint8_t isrunning(void);
-	    static DateTime now();
-	    static clockPinMode readSqwPinMode();
-	    static void writeSqwPinMode(clockPinMode mode);
-	    uint8_t readnvram(uint8_t address);
-	    void readnvram(uint8_t* buf, uint8_t size, uint8_t address);
-	    void writenvram(uint8_t address, uint8_t data);
-	    void writenvram(uint8_t address, uint8_t* buf, uint8_t size);
+public:
+    boolean begin(void);
+    void adjust(const DateTime& dt);
+    boolean initialized(void);
+    static DateTime now();
+
+    Pcf8523SqwPinMode readSqwPinMode();
+    void writeSqwPinMode(Pcf8523SqwPinMode mode);
 };
+
 
 
 // RTC using the internal millis() clock, has to be initialized before use
@@ -116,5 +95,55 @@ class RTC_Millis {
     	static DateTime now();
 	protected:
     	static long offset;
+};
+
+//
+//LOGGER
+//
+class logger{
+	public:
+
+		logger();
+		//
+		//void boot();
+		//low level deocde functions
+		bool decodeTag(unsigned char *buf);	//low level tag decode
+		void transferToBuffer(byte *tagData, byte *tagDataBuffer);	//transfer data from one array to another
+		bool compareTagData(byte *tagData1, byte *tagData2);			//compate 2 arrays
+
+		//higher level tag scanning / reporting
+		bool scanForTag(byte *tagData);
+		void load_settings();
+		void set_setting(String setting, String value);
+		void boot();
+		int get_RFID_READ_FREQ(){ 
+			return RFID_READ_FREQ;
+		}
+		void capture_command();
+		String time_stamp_string();
+		//user output pin values, variables as they will change depending on which hardware is used
+	private:
+		//pins to connect Arduino to the EM4095 chip, variables as they will change depending on which hardware is used
+		int demodOut;
+		int shd;
+		int mod;
+		int rdyClk;
+
+		//real time clock
+		clock rtc;
+
+		//settings and their default values
+		int BOOT_TO_MODE = 0;
+		int CURRENT_MODE = 0;
+		String POWER_SCHEDULE = "00:00-24:00";
+		bool JSON_RECORD = true;
+		bool CSV_RECORD = true;
+		int RFID_READ_FREQ = 200;
+		int LOW_BATTERY = 500;
+		int LONGITUDE = -80.60301463292694;
+		int LATITUDE = 28.60739886098215;
+		String FILE_PREFIX = "datalog";
+		int HOURS_PER_FILE = 24;
+		int COMMAND_TIMEOUT = 500;
 };
 #endif
