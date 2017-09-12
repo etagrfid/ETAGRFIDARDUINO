@@ -4,8 +4,9 @@
 File myFile;
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial);
+  delay(1000);
+  SerialUSB.begin(9600);
+  while (!SerialUSB);
   load_settings();
 }
 
@@ -18,8 +19,8 @@ void load_settings() {
   char value[30] = "";
   int next_index = 0;
   int value_index = 0;
-  if (!SD.begin(10)) {
-    Serial.println("initialization failed!");
+  if (!SD.begin(7)) {
+    SerialUSB.println("initialization failed!");
     return;
   }
   File settings = SD.open("settings.txt");
@@ -28,7 +29,7 @@ void load_settings() {
     while (settings.available()) {
       letter = settings.read();
       switch (letter) {
-        case '#':
+        case '#'://after a comment symbol ignore until new line
           while (settings.available() && letter != '\n' && letter != '\r') {
             letter = settings.read();
           }
@@ -44,12 +45,12 @@ void load_settings() {
             value_index++;
           }
 
-          if(current_setting == "DEFAULT_MODE"){ //figure out what the setting is
-            Serial.println("boot mode read");
-          }else if(current_setting == "POWER_SCHEDULE"){
-            Serial.println("power schedule read");
-          }else{
-            Serial.println(current_setting);
+          if (current_setting == "DEFAULT_MODE") { //figure out what the setting is
+            SerialUSB.println("boot mode setting parsed");
+          } else if (current_setting == "POWER_SCHEDULE") {
+            SerialUSB.println("power schedule setting parsed");
+          } else {
+            SerialUSB.println(current_setting);
           }
 
           while (value_index > 0) {  //clear value for next use
@@ -72,7 +73,7 @@ void load_settings() {
     settings.close();
   } else {
     // if the file didn't open, print an error:
-    Serial.println("error opening test.txt");
+    SerialUSB.println("error opening test.txt");
   }
 
 
