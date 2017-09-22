@@ -2,7 +2,6 @@
 #include <SPI.h>
 #include <SD.h>
 #include <Wire.h>
-#include "RTClib.h"
 
 File dataFile;
 clock rtc;
@@ -15,21 +14,15 @@ int chipSelect = 10;//7 on m0
 void setup() {
   delay(1000);
   SerialUSB.begin(9600);
-  while (!SerialUSB);
+ // while (!SerialUSB);
   if (!SD.begin(chipSelect)) {
-    const char error[31] PROGMEM = "SD card failed, or not present";
-    Serial.println(error);
-    return;
+    SerialUSB.println("SD card failed, or not present");
   }
-  const char greeting[28] PROGMEM = "Please swipe your RFID Tag.";
-  Serial.println(greeting);
+  SerialUSB.println("Please swipe your RFID Tag.");
 
   if (!rtc.begin()) {
     SerialUSB.println("Couldn't find RTC");
   }
-  //if (!rtc.isrunning()) {
-    //SerialUSB.println("RTC not running");
-  //}
   // following line sets the RTC to the date & time this sketch was compiled
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   load_settings();
@@ -39,19 +32,19 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available()) {
+  if (SerialUSB.available()) {
     L.capture_command();
   }
   //scan for a tag - if a tag is sucesfully scanned, return a 'true' and proceed
   if (L.scanForTag(tagData) == true) {
-    Serial.print("RFID Tag Data: "); //print a header to the Serial port.
+    SerialUSB.print("RFID Tag Data: "); //print a header to the Serial port.
     for (int n = 0; n < 5; n++) {
-      Serial.print(tagData[n], HEX);
+      SerialUSB.print(tagData[n], HEX);
     }
-    Serial.print("\n\rRFID Tag ID: ");
+    SerialUSB.print("\n\rRFID Tag ID: ");
     tagID = ((long)tagData[1] << 24) + ((long)tagData[2] << 16) + ((long)tagData[3] << 8) + tagData[4];
-    Serial.print(tagID);
-    Serial.print("\n\r\n\r");
+    SerialUSB.print(tagID);
+    SerialUSB.print("\n\r\n\r");
     DateTime now = rtc.now();
   }  
   
@@ -79,7 +72,7 @@ void load_settings() {
   int next_index = 0;
   int value_index = 0;
   if (!SD.begin(7)) {
-    SerialUSB.println("initialization failed!");
+    SerialUSB.println("Could not find SD card to load settings!");
     return;
   }
   File settings = SD.open("settings.txt");
