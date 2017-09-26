@@ -23,9 +23,6 @@ void setup() {
   // following line sets the RTC to the date & time this sketch was compiled
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   load_settings();
-  /*dataFile = SD.open("data.csv", FILE_WRITE);
-    dataFile.print(':\n');
-    dataFile.close();*/
 }
 
 void loop() {
@@ -95,17 +92,21 @@ void load_settings() {
       case ' ': //do nothing with spaces new lines and tabs
         break;
       case ':':
-        while (settings.available() && value[value_index] != ';') { //read in setting value
+        while (settings.available() && value[value_index - 1] != ';') { //read in setting value
           value[value_index] = settings.read();
           value_index++;
         }
 
         if (current_setting == "DEFAULT_MODE") { //figure out what the setting is
-          SerialUSB.println("boot mode setting parsed");
+          SerialUSB.print("setting: default_mode = ");
+          SerialUSB.println(value);
         } else if (current_setting == "POWER_SCHEDULE") {
-          SerialUSB.println("power schedule setting parsed");
+          SerialUSB.print("setting: power schedule = value");
+          SerialUSB.println(value);
         } else {
-          SerialUSB.println(current_setting);
+          SerialUSB.print(current_setting);
+          SerialUSB.print(" : ");
+          SerialUSB.println(value);
         }
 
         while (value_index > 0) {  //clear value for next use
