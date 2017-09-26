@@ -9,12 +9,12 @@ byte tagData[5];
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 logger L;
 unsigned long tagID;
-int chipSelect = 10;//7 on m0
+int chipSelect = 7;//7 on m0 // was 10
 
 void setup() {
-  delay(1000);
+  delay(20000);
   SerialUSB.begin(9600);
- // while (!SerialUSB);
+  // while (!SerialUSB);
   if (!SD.begin(chipSelect)) {
     SerialUSB.println("SD card failed, or not present");
   }
@@ -33,6 +33,7 @@ void setup() {
 
 void loop() {
   if (SerialUSB.available()) {
+    SerialUSB.println("command received");
     L.capture_command();
   }
   //scan for a tag - if a tag is sucesfully scanned, return a 'true' and proceed
@@ -46,23 +47,25 @@ void loop() {
     SerialUSB.print(tagID);
     SerialUSB.print("\n\r\n\r");
     DateTime now = rtc.now();
-  }  
-  
-  DateTime now = rtc.now(); 
-  SerialUSB.print(now.year(), DEC);
-  SerialUSB.print('/');
-  SerialUSB.print(now.month(), DEC);
-  SerialUSB.print('/');
-  SerialUSB.print(now.day(), DEC);
-  SerialUSB.print(" (");
-  SerialUSB.print(daysOfTheWeek[now.dayOfTheWeek()]);
-  SerialUSB.print(") ");
-  SerialUSB.print(now.hour(), DEC);
-  SerialUSB.print(':');
-  SerialUSB.print(now.minute(), DEC);
-  SerialUSB.print(':');
-  SerialUSB.print(now.second(), DEC);
-  SerialUSB.println();
+  } else {
+    SerialUSB.println("No Tag Detected");
+  }
+
+    DateTime now = rtc.now();
+    SerialUSB.print(now.year(), DEC);
+    SerialUSB.print('/');
+    SerialUSB.print(now.month(), DEC);
+    SerialUSB.print('/');
+    SerialUSB.print(now.day(), DEC);
+    SerialUSB.print(" (");
+    SerialUSB.print(daysOfTheWeek[now.dayOfTheWeek()]);
+    SerialUSB.print(") ");
+    SerialUSB.print(now.hour(), DEC);
+    SerialUSB.print(':');
+    SerialUSB.print(now.minute(), DEC);
+    SerialUSB.print(':');
+    SerialUSB.print(now.second(), DEC);
+    SerialUSB.println();
   delay(3000);
 }
 
@@ -71,7 +74,7 @@ void load_settings() {
   char value[30] = "";
   int next_index = 0;
   int value_index = 0;
-  if (!SD.begin(7)) {
+  if (!SD.begin(chipSelect)) {
     SerialUSB.println("Could not find SD card to load settings!");
     return;
   }
