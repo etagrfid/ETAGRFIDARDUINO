@@ -13,12 +13,13 @@ int chipSelect = 7;//7 => m0; uno => 10
 
 void setup() {
   delay(20000);//delay to allow for reprogramming before serial port gets jammed
-  SerialUSB.begin(9600);
 
   //turns on RFID reading chip
   pinMode(8, OUTPUT);
   digitalWrite(8, LOW);
 
+  SerialUSB.begin(9600);
+  while(!SerialUSB); //needed  
   SerialUSB.println("Please swipe your RFID Tag.");
 
   if (!rtc.begin()) {

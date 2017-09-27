@@ -10,6 +10,7 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 
 void setup() {
   SerialUSB.begin(9600);
+  while(!SerialUSB);
   if (! rtc.begin()) {
     SerialUSB.println("Couldn't find RTC");
     while (1);
