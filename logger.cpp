@@ -214,7 +214,7 @@ void logger::load_settings(){
 //initialize the RFIDuino object and set the pins correctlly based on hardware version
 logger::logger(){
   //RFID related pins
-  demodOut = 5;
+  demodOut = 30;
   shd = 4;
   mod = 2;
   rdyClk = 1;

@@ -9,19 +9,24 @@ byte tagData[5];
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 logger L;
 unsigned long tagID;
-int chipSelect = 7;//7 on m0 // was 10
+int chipSelect = 7;//7 => m0; uno => 10
 
 void setup() {
-  delay(20000);
+  delay(20000);//delay to allow for reprogramming before serial port gets jammed
   SerialUSB.begin(9600);
-  // while (!SerialUSB);
+
+  //turns on RFID reading chip
+  pinMode(8, OUTPUT);
+  digitalWrite(8, LOW);
+
   SerialUSB.println("Please swipe your RFID Tag.");
 
   if (!rtc.begin()) {
-    SerialUSB.println("Couldn't find RTC");
+    SerialUSB.println("Couldn't find RTC!");
+  } else {
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-  // following line sets the RTC to the date & time this sketch was compiled
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   load_settings();
 }
 
@@ -60,7 +65,7 @@ void loop() {
   SerialUSB.print(':');
   SerialUSB.print(now.second(), DEC);
   SerialUSB.println();
-  delay(3000);
+  delay(200);
 }
 
 void load_settings() {
