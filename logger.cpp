@@ -306,7 +306,18 @@ int logger::decodeTag(unsigned char *buf){
     if(digitalRead(demodOut)) 
 	{
       for(i = 0; i < 8; i++) {// 9 header bits
-        timeCount = 0; //restart counting
+        int ret = WaitForPinState(demodOut, 0,TIMEOUT);
+		if(ret != 0)
+		{
+			return -1;
+		}
+		ret = WaitForPinState(demodOut, 1,TIMEOUT);
+		if(ret != 0)
+		{
+			return -1;
+		}
+		
+		/*timeCount = 0; //restart counting
         while(1 == digitalRead(demodOut)) 
 		{//while DEMOD out is high
           if(timeCount == TIMEOUT){
@@ -334,7 +345,7 @@ int logger::decodeTag(unsigned char *buf){
 
 			break;
           }
-        }
+        }*/
       }
       if(timeOutFlag){
         timeOutFlag = 0;
