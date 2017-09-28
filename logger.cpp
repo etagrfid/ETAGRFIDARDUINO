@@ -249,9 +249,32 @@ logger::logger(){
   digitalWrite(8, LOW);
 
 }
-
+enum{
+	TIMEOUT_FIRSTREAD=1,
+	TIMEOUT_FLAG1,
+	TIMEOUT_FLAG2,
+	TIMEOUT_FLAG3,
+	FAIL_INE8,
+	FOUND_RESULT,
+	FAIL_EOF
+};
+int WaitForPinState(int pin, int state,int timeout_us)
+{
+	int timeout = 0;
+	while(state != digitalRead(pin)) 
+	{
+		if(timeout >= timeout_us)
+		{
+			SerialUSB.println("WAIT TIMEOUT 1");
+			return -1;
+		} 
+		delayMicroseconds(1);
+		timeout++;
+	}
+	return 0;
+}
 //Manchester decode. Supply the function an array to store the tags ID in
-bool logger::decodeTag(unsigned char *buf){
+int logger::decodeTag(unsigned char *buf){
   unsigned char i = 0;
   unsigned short timeCount;
   unsigned char timeOutFlag = 0;
@@ -263,40 +286,59 @@ bool logger::decodeTag(unsigned char *buf){
   unsigned char j;
   while(1){
     timeCount = 0;
-    while(0 == digitalRead(demodOut)){//watch for demodOut to go low
-      if(timeCount >= TIMEOUT){ //if we pass TIMEOUT milliseconds, break out of the loop
+    while(0 == digitalRead(demodOut))
+	{//watch for demodOut to go low
+      if(timeCount >= TIMEOUT)
+	  { //if we pass TIMEOUT milliseconds, break out of the loop
         break;
-      } else {
+      } 
+	  else 
+	  {
         timeCount++;
       }
-    } if (timeCount >= 600) {
-      return false;
+    } 
+	if (timeCount >= 6000) 
+	{
+      return TIMEOUT_FIRSTREAD;
     }
     timeCount = 0;
     delayMicroseconds(DELAYVAL);
-    if(digitalRead(demodOut)) {
+    if(digitalRead(demodOut)) 
+	{
       for(i = 0; i < 8; i++) {// 9 header bits
         timeCount = 0; //restart counting
-        while(1 == digitalRead(demodOut)) {//while DEMOD out is high
+        while(1 == digitalRead(demodOut)) 
+		{//while DEMOD out is high
           if(timeCount == TIMEOUT){
-            timeOutFlag = 1;
+            SerialUSB.println("HEADER TIMEOUT 1");
+
+			timeOutFlag = 1;
             break;
-          } else {
+          } 
+		  else 
+		  {
             timeCount++;
           }
         }
-        if(timeOutFlag) {
-          break;
-        } else {
+        if(timeOutFlag) 
+		{
+          SerialUSB.println("HEADER TIMEOUT 2");
+		  break;
+        } 
+		else 
+		{
           delayMicroseconds(DELAYVAL);
-          if( 0 == digitalRead(demodOut) ){
-            break;
+          if( 0 == digitalRead(demodOut) )
+		  {
+			SerialUSB.println("HEADER FAIL");
+
+			break;
           }
         }
       }
       if(timeOutFlag){
         timeOutFlag = 0;
-        return false;
+        return TIMEOUT_FLAG1;
       }
       if(i == 8){ //Receive the data
         timeOutFlag = 0;
@@ -310,7 +352,7 @@ bool logger::decodeTag(unsigned char *buf){
           }
           if(timeOutFlag){
             timeOutFlag = 0;
-            return false;
+            return TIMEOUT_FLAG2;
           }
         }
         col_parity[0] = col_parity[1] = col_parity[2] = col_parity[3] = col_parity[4] = 0;
@@ -353,15 +395,18 @@ bool logger::decodeTag(unsigned char *buf){
 
         if( timeOutFlag || (col_parity[0] & 0x01) || (col_parity[1] & 0x01) || (col_parity[2] & 0x01) || (col_parity[3] & 0x01) ){ //Column parity
           timeOutFlag = 0;
-          return false;
+          return TIMEOUT_FLAG3;
         } else {
-          return true;
+          return FOUND_RESULT;
         }
       }//end if(i==8)
-      return false;
+	  SerialUSB.print("i = ");
+		SerialUSB.println(i);
+      return FAIL_INE8;
     }//if(digitalRead(demodOut))
   } //while(1)
-};
+  return FAIL_EOF;
+}
 
 //function to compare 2 byte arrays. Returns true if the two arrays match, false of any numbers do not match
 bool logger::compareTagData(byte *tagData1, byte *tagData2){
@@ -383,12 +428,13 @@ void logger::transferToBuffer(byte *tagData, byte *tagDataBuffer){
 }
 
 bool logger::scanForTag(byte *tagData){
-  static byte tagDataBuffer[5];      //A Buffer for verifying the tag data. 'static' so that the data is maintained the next time the loop is called
-  static int readCount = 0;          //the number of times a tag has been read. 'static' so that the data is maintained the next time the loop is called
-  boolean verifyRead = false; //true when a tag's ID matches a previous read, false otherwise
-  boolean tagCheck = false;   //true when a tag has been read, false otherwise
-  tagCheck = decodeTag(tagData); //run the decodetag to check for the tag
-  if (tagCheck == true) //if 'true' is returned from the decodetag function, a tag was succesfully scanned
+  //static byte tagDataBuffer[5];      //A Buffer for verifying the tag data. 'static' so that the data is maintained the next time the loop is called
+  //static int readCount = 0;          //the number of times a tag has been read. 'static' so that the data is maintained the next time the loop is called
+  //boolean verifyRead = false; //true when a tag's ID matches a previous read, false otherwise
+  //boolean tagCheck = false;   //true when a tag has been read, false otherwise
+  int tagCheck = decodeTag(tagData); //run the decodetag to check for the tag
+  SerialUSB.println(tagCheck);
+  /*if (tagCheck == true) //if 'true' is returned from the decodetag function, a tag was succesfully scanned
   {
     readCount++;      //increase count since we've seen a tag
     if(readCount == 1) //if have read a tag only one time, proceed
@@ -408,7 +454,7 @@ bool logger::scanForTag(byte *tagData){
   else
   {
     return false;
-  }
+  }*/
 }
 //
 //CLOCK
