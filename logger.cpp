@@ -160,54 +160,70 @@ void logger::set_setting(String setting, String value){
 }
 
 void logger::load_settings(){
-  //Serial.println("loading settings");
-  String current_setting = "";
-  String value = "";
-  
-  if (!SD.begin(10)) {
-    const String error_msg = "SD card not found!";
-    Serial.println(error_msg);
+  char current_setting[30] = "";
+  char value[30] = "";
+  int next_index = 0;
+  int value_index = 0;
+  if (!SD.begin(7)){//chipSelect)) {
+    SerialUSB.println("Could not find SD card to load settings!");
     return;
   }
   File settings = SD.open("settings.txt");
-  if (settings) {
-    char letter;
-    while (settings.available()) {
-      letter = settings.read();
-      switch (letter) {
-        case '#':
-          while (settings.available() && letter != '\n' && letter != '\r') {
-            letter = settings.read();
-          }
-          break;
-        case '\t':
-        case '\n':
-        case '\r':
-        case ' ': //do nothing with spaces new lines and tabs
-          break;
-        case ':':
-          while (settings.available() && letter != ';') { //read in setting value
-            value += settings.read();
-            letter = settings.read();
-          }
-
-
-
-          set_setting(current_setting, value);
-          value = "";
-          current_setting = "";
-          break;
-        default:
-          current_setting += letter;
-          break;
-      }
-    }
-    settings.close();
-  } else {
+  if (!settings) {
     // if the file didn't open, print an error:
-    //const String error_msg = "error opening settings.txt";
-    //Serial.println(error_msg);
+    SerialUSB.println("Error, SD card detected but could not open settings.txt");
   }
+  char letter;
+  while (settings.available()) {
+    letter = settings.read();
+    switch (letter) {
+      case '#'://after a comment symbol ignore until new line
+        while (settings.available() && letter != '\n' && letter != '\r') {
+          letter = settings.read();
+        }
+        break;
+      case '\t':
+      case '\n':
+      case '\r':
+      case ' ': //do nothing with spaces new lines and tabs
+        break;
+      case ':':
+        while (settings.available() && value[value_index - 1] != ';') { //read in setting value
+          value[value_index] = settings.read();
+          value_index++;
+        }
+
+        if (current_setting == "DEFAULT_MODE") { //figure out what the setting is
+          SerialUSB.print("setting: default_mode = ");
+          SerialUSB.println(value);
+        } else if (current_setting == "POWER_SCHEDULE") {
+          SerialUSB.print("setting: power schedule = value");
+          SerialUSB.println(value);
+        } else {
+          SerialUSB.print(current_setting);
+          SerialUSB.print(" : ");
+          SerialUSB.println(value);
+        }
+
+        while (value_index > 0) {  //clear value for next use
+          value[value_index] = '\0';
+          value_index--;
+        }
+
+        while (next_index > 0) {  //clear setting for next use
+          current_setting[next_index] = '\0';
+          next_index--;
+        }
+        next_index = 0; //reset index
+        break;
+      default:
+        current_setting[next_index] = letter;
+        next_index++;
+        break;
+    }
+  }
+  settings.close();
+  return;
 }
 
 
@@ -227,6 +243,11 @@ logger::logger(){
   //set shd and MOD low to prepare for reading
   digitalWrite(shd, LOW);
   digitalWrite(mod, LOW);
+
+  //turn on RFID chip
+  pinMode(8, OUTPUT);
+  digitalWrite(8, LOW);
+
 }
 
 //Manchester decode. Supply the function an array to store the tags ID in

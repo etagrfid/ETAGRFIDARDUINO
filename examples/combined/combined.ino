@@ -14,12 +14,8 @@ int chipSelect = 7;//7 => m0; uno => 10
 void setup() {
   delay(20000);//delay to allow for reprogramming before serial port gets jammed
 
-  //turns on RFID reading chip
-  pinMode(8, OUTPUT);
-  digitalWrite(8, LOW);
-
   SerialUSB.begin(9600);
-  while(!SerialUSB); //needed  
+  while(!SerialUSB); //needed or 1st print does not work
   SerialUSB.println("Please swipe your RFID Tag.");
 
   if (!rtc.begin()) {
@@ -28,7 +24,7 @@ void setup() {
     // following line sets the RTC to the date & time this sketch was compiled
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-  load_settings();
+  L.load_settings();
 }
 
 void loop() {
@@ -67,70 +63,4 @@ void loop() {
   SerialUSB.print(now.second(), DEC);
   SerialUSB.println();
   delay(200);
-}
-
-void load_settings() {
-  char current_setting[30] = "";
-  char value[30] = "";
-  int next_index = 0;
-  int value_index = 0;
-  if (!SD.begin(chipSelect)) {
-    SerialUSB.println("Could not find SD card to load settings!");
-    return;
-  }
-  File settings = SD.open("settings.txt");
-  if (!settings) {
-    // if the file didn't open, print an error:
-    SerialUSB.println("Error, SD card detected but could not open settings.txt");
-  }
-  char letter;
-  while (settings.available()) {
-    letter = settings.read();
-    switch (letter) {
-      case '#'://after a comment symbol ignore until new line
-        while (settings.available() && letter != '\n' && letter != '\r') {
-          letter = settings.read();
-        }
-        break;
-      case '\t':
-      case '\n':
-      case '\r':
-      case ' ': //do nothing with spaces new lines and tabs
-        break;
-      case ':':
-        while (settings.available() && value[value_index - 1] != ';') { //read in setting value
-          value[value_index] = settings.read();
-          value_index++;
-        }
-
-        if (current_setting == "DEFAULT_MODE") { //figure out what the setting is
-          SerialUSB.print("setting: default_mode = ");
-          SerialUSB.println(value);
-        } else if (current_setting == "POWER_SCHEDULE") {
-          SerialUSB.print("setting: power schedule = value");
-          SerialUSB.println(value);
-        } else {
-          SerialUSB.print(current_setting);
-          SerialUSB.print(" : ");
-          SerialUSB.println(value);
-        }
-
-        while (value_index > 0) {  //clear value for next use
-          value[value_index] = '\0';
-          value_index--;
-        }
-
-        while (next_index > 0) {  //clear setting for next use
-          current_setting[next_index] = '\0';
-          next_index--;
-        }
-        next_index = 0; //reset index
-        break;
-      default:
-        current_setting[next_index] = letter;
-        next_index++;
-        break;
-    }
-  }
-  settings.close();
 }
