@@ -1,3 +1,4 @@
+#define Serial SerialUSB
 #include "Arduino.h"
 #include <logger.h>  
 //
@@ -231,7 +232,7 @@ void logger::load_settings(){
 logger::logger(){
   //RFID related pins
   demodOut = 30;
-  shd = 4;
+  shd = 8;
   mod = 2;
   rdyClk = 1;
   //set pin modes on RFID pins
@@ -244,9 +245,9 @@ logger::logger(){
   digitalWrite(shd, LOW);
   digitalWrite(mod, LOW);
 
-  //turn on RFID chip
+/*  //turn on RFID chip
   pinMode(8, OUTPUT);
-  digitalWrite(8, LOW);
+  digitalWrite(8, LOW);*/
 
 }
 
@@ -270,6 +271,7 @@ bool logger::decodeTag(unsigned char *buf){
         timeCount++;
       }
     } if (timeCount >= 600) {
+      SerialUSB.("timeout 1");
       return false;
     }
     timeCount = 0;
@@ -296,6 +298,7 @@ bool logger::decodeTag(unsigned char *buf){
       }
       if(timeOutFlag){
         timeOutFlag = 0;
+        SerialUSB.println("timeout 2");
         return false;
       }
       if(i == 8){ //Receive the data
@@ -310,6 +313,7 @@ bool logger::decodeTag(unsigned char *buf){
           }
           if(timeOutFlag){
             timeOutFlag = 0;
+            SerialUSB.println("timeout 3");
             return false;
           }
         }
@@ -353,11 +357,14 @@ bool logger::decodeTag(unsigned char *buf){
 
         if( timeOutFlag || (col_parity[0] & 0x01) || (col_parity[1] & 0x01) || (col_parity[2] & 0x01) || (col_parity[3] & 0x01) ){ //Column parity
           timeOutFlag = 0;
+          SerialUSB.println("timeout 4");  
           return false;
         } else {
+          SerialUSB.println("timeout 5");
           return true;
         }
       }//end if(i==8)
+      SerialUSB.println("timeout 6");
       return false;
     }//if(digitalRead(demodOut))
   } //while(1)

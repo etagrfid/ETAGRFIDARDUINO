@@ -3,6 +3,10 @@
 #include <SD.h>
 #include <Wire.h>
 
+// To read RFID correctly on ETAG comment out lines 81 and 82 in C:\Users\Owner\AppData\Local\Arduino15\packages\arduino\hardware\samd\1.6.16\variants\arduino_mzero\variant.h
+//#define PIN_LED_RXL          (30u)
+//#define PIN_LED_TXL          (31u)
+
 File dataFile;
 clock rtc;
 byte tagData[5];
@@ -33,6 +37,9 @@ void loop() {
     L.capture_command();
   }
   //scan for a tag - if a tag is sucesfully scanned, return a 'true' and proceed
+  while(L.scanForTag(tagData) == false){
+    SerialUSB.println("No Tag");  
+  };
   if (L.scanForTag(tagData) == true) {
     SerialUSB.print("RFID Tag Data: "); //print a header to the Serial port.
     for (int n = 0; n < 5; n++) {
