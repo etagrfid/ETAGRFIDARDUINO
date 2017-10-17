@@ -2,7 +2,7 @@
 #define logger_h //define RFIDuino_h, to prevent code being loaded if this library is loaded a second time
 #include "Arduino.h"
 #define DELAYVAL    320   //384 //standard delay for manchster decode
-#define TIMEOUT     1000  //standard timeout for manchester decode
+#define TIMEOUT     1000000  //standard timeout for manchester decode
 
 //
 //CLOCK
@@ -107,7 +107,7 @@ class logger{
 		//
 		//void boot();
 		//low level deocde functions
-		bool decodeTag(unsigned char *buf);	//low level tag decode
+		int decodeTag(unsigned char *buf);	//low level tag decode
 		void transferToBuffer(byte *tagData, byte *tagDataBuffer);	//transfer data from one array to another
 		bool compareTagData(byte *tagData1, byte *tagData2);			//compate 2 arrays
 
