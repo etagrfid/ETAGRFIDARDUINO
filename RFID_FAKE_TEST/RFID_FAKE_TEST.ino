@@ -224,7 +224,7 @@ uint8_t iFakeData[] = {
                 0b10111,
                 0b10010,
                 0b10111,
-                0b00101};// Column Parity bits and stop bit (0)
+                0b00100};// Column Parity bits and stop bit (0)
 
 bool gFakeData[] = {// 1,1,1,1,1,1,1,1,1,
                 0,0,0,1,1,
@@ -237,7 +237,7 @@ bool gFakeData[] = {// 1,1,1,1,1,1,1,1,1,
                 1,0,1,1,1,
                 1,0,0,1,0,
                 1,0,1,1,1,
-                0,0,1,0,1};// Column Parity bits and stop bit (0)
+                0,0,1,0,0};// Column Parity bits and stop bit (0)
                 
 void transmit(bool *idata,int totalBits) 
 {
