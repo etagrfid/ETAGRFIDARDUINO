@@ -14,7 +14,7 @@ uint8_t xxxxxx;
 //Book keeping vars
 volatile uint32_t gReadBitCount = 0;
 volatile uint32_t gIntCount = 0;
-#define gbRingBuffSize 128
+#define gbRingBuffSize 1024
 volatile uint8_t    gbRingBuff[gbRingBuffSize];
 volatile uint32_t   gRingBufWrite = 0;
 volatile uint32_t   gRingBufRead = 0;
@@ -34,8 +34,6 @@ void INT_manchesterDecode()
   unsigned long time_diff = curr_time - prev_time;
   prev_time = curr_time;
   //serial.println(time_diff);
-
-  //save the time difference
   
   
   bool PinState = digitalRead(demodOut);
@@ -44,10 +42,15 @@ void INT_manchesterDecode()
     thisRead = 1;
    
   static unsigned short lastRead = thisRead;
-  unsigned short bval = 0;
   static unsigned short lastBit = 0;
-  
 
+  unsigned short bval = 0;
+
+  if(time_diff > pskDelay*2)
+  {
+    lastRead = thisRead;
+    lastBit = 0;
+  }
   if(time_diff > pskDelay)
   {
     if(gIntCount > 1)
@@ -161,11 +164,15 @@ void transmit(bool *idata,int totalBits)
   }
   serial.print("Total flips: ");
   serial.println(slamcount);
+  delay(100);
+  digitalWrite(outputpin, HIGH);
 }
 void setup() 
 {
   // put your setup code here, to run once:
   serial.begin(230400);
+  delay(100);
+
   //while (!serial);
   serial.println("running");
   serial.print("UINT SIZE:");
@@ -193,14 +200,14 @@ void setup()
 char sBuf[256];
 void loop() 
 {
-  static int foo = 2;
+  static int foo = 5;
   
   if(foo <= 0)
     return;
   foo--;
   delay(750);
   transmit(gFakeData,sizeof(gFakeData));
-  delay(500);
+  delay(750);
   
   serial.print("I: ");
   serial.print(gIntCount);
