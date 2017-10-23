@@ -19,6 +19,9 @@ volatile uint8_t    gbRingBuff[gbRingBuffSize];
 volatile uint32_t   gRingBufWrite = 0;
 volatile uint32_t   gRingBufRead = 0;
 
+volatile uint8_t    gPacketBuf[5];
+volatile uint8_t    gParity[2];
+
 bool ReadFromRB(void)
 {
   bool retval =  gbRingBuff[gRingBufRead++];
@@ -120,11 +123,28 @@ keep_exe_int:
   if(gRingBufWrite > gbRingBuffSize)
     gRingBufWrite=0;
 
+  /*static uint8_t header_count = 0;
+  if(bval == 1 && gReadBitCount == 0)
+  {
+    header_count++;
+  }
+  else if(bval == 1 && lastBit == 1)
+  {
+    header_count++;
+  }
+  else
+    header_count = 0;*/
+
+  //if(header_count >=9)
+    //Serial.println("Header found");
+     
+  //assingments to happen at the end
+
 }
 
 
-bool gFakeData[] = { 1,1,1,1,1,1,1,1,1,
-                0,0,0,1,1,0,1,1,
+bool gFakeData[] = {// 1,1,1,1,1,1,1,1,1,
+                0,0,0,1,1,
                 1,0,1,1,0, //version number / customer id + even paraty column
                 1,0,1,1,0,
                 0,1,1,1,0,
@@ -137,15 +157,24 @@ bool gFakeData[] = { 1,1,1,1,1,1,1,1,1,
                 0,0,1,0,1,
                 1,0,1,1,1,
                 0,0,0,0,0};// Column Parity bits and stop bit (0)
+                
 void transmit(bool *idata,int totalBits) 
 {
   int slamcount=0;
+  int mics = sendDelay;
+  int d1 = mics;
+  int d2 = mics;
+  int s1,s2;
+  //insert 9-1's for the header
+  for (int i = 0; i < 9; i++) 
+  {
+    digitalWrite(outputpin, 0);
+    delayMicroseconds(d1);
+    digitalWrite(outputpin, 1);
+    delayMicroseconds(d2);
+  }
   for (int i = 0; i < totalBits; i++) 
   {
-    int mics = sendDelay;
-    int d1 = mics;
-    int d2 = mics;
-    int s1,s2;
     if (idata[i])
     {
       s1 = 0;
@@ -160,10 +189,10 @@ void transmit(bool *idata,int totalBits)
     delayMicroseconds(d1);
     digitalWrite(outputpin, s2);
     delayMicroseconds(d2);
-    slamcount+=2;
+    //slamcount+=2;
   }
-  serial.print("Total flips: ");
-  serial.println(slamcount);
+  //serial.print("Total flips: ");
+  //serial.println(slamcount);
   delay(100);
   digitalWrite(outputpin, HIGH);
 }
@@ -200,7 +229,7 @@ void setup()
 char sBuf[256];
 void loop() 
 {
-  static int foo = 5;
+  static int foo = 6;
   
   if(foo <= 0)
     return;
@@ -221,13 +250,16 @@ void loop()
   for(unsigned long i=0;i<gReadBitCount;i++)
   {
       unsigned short newbyte = ReadFromRB();
+      int fakeme = 1;
+      if(i >= 9)
+        fakeme = (int)gFakeData[i-9];
       serial.print(i);
       serial.print(", ");
       serial.print(newbyte);
       serial.print(", ");
-      serial.print((int)gFakeData[i]);
+      serial.print(fakeme);
       serial.println();
-      if(newbyte != gFakeData[i])
+      if(newbyte != fakeme)
         errors++;
   }
   serial.print("Errors: ");
