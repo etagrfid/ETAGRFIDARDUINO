@@ -34,6 +34,30 @@ void dummy() {
   // You can do some little operations here (like changing variables which will be used in the loop)
   // Remember to avoid calling delay() and long running functions since this functions executes in interrupt context
 }*/
+typedef struct{
+  bool parity:1;
+  byte data_nibb:4;
+  byte xxxxx:3;
+  } EM4100Line;
+typedef struct{
+  EM4100Line lines[11];
+  /*byte d0:1;
+  byte d1:1;
+  byte d2:1;
+  byte d3:1;
+  byte d4:1;
+  byte d5:1;
+  byte d6:1;
+  byte d7:1;*/
+  
+  /*bool p0:1;
+  byte d00_03:4;
+  byte x0:3;
+
+  bool p1:1;
+  byte d04_07:4;
+  byte x1:3;*/
+} EM4100Data;
 #define serial Serial
 #define num_bits 64
 #define outputpin 2
@@ -200,12 +224,12 @@ keep_exe_int:
     //if(gPacketBufWrite>=sizeof(gPacketBufWithParity))
     //  gPacketBufWrite=0;
 
-    /*if(bitPositon == 54)
+    if(bitPosition == 54)
     {
       gPacketBufWrite = 0;
       headerFound     = 0;
       header_count    = 0;
-    }*/
+    }
   }
 theEnd:     
   //assingments to happen at the end
@@ -215,29 +239,29 @@ theEnd:
 }
 uint8_t iFakeData[] = {
                 0b00011,
-                0b10110, //version number / customer id + even parity column
-                0b10110,
-                0b01110,
+                0b10111, //version number / customer id + even parity column
+                0b10111,
+                0b01111,
                 0b00011, //Data bits + even parity column
                 0b10100,
                 0b10111,
                 0b10111,
                 0b10010,
                 0b10111,
-                0b00100};// Column Parity bits and stop bit (0)
+                0b11110};// Column Parity bits and stop bit (0)
 
 bool gFakeData[] = {// 1,1,1,1,1,1,1,1,1,
                 0,0,0,1,1,
-                1,0,1,1,0, //version number / customer id + even paraty column
-                1,0,1,1,0,
-                0,1,1,1,0,
+                1,0,1,1,1, //version number / customer id + even paraty column
+                1,0,1,1,1,
+                0,1,1,1,1,
                 0,0,0,1,1, //Data bits + even paraty column
                 1,0,1,0,0,
                 1,0,1,1,1,
                 1,0,1,1,1,
                 1,0,0,1,0,
                 1,0,1,1,1,
-                0,0,1,0,0};// Column Parity bits and stop bit (0)
+                1,1,1,1,0};// Column Parity bits and stop bit (0)
                 
 void transmit(bool *idata,int totalBits) 
 {
@@ -307,10 +331,21 @@ void setup()
   pinMode(pLED,OUTPUT);
   digitalWrite(pLED,0);
 }
-char sBuf[256];
+int has_even_parity(uint8_t x)
+{
+  volatile unsigned int count = 0, i, b = 1;
+
+  for(volatile int i = 0; i < 8; i++){
+    if( x & (b << i) ){count++;}
+  }
+
+  if( (count % 2) ){return 0;}
+
+  return 1;
+}
 void loop() 
 {
-  static int foo = 1;
+  static int foo = 2;
   
   if(foo <= 0)
     return;
@@ -350,10 +385,25 @@ void loop()
   errors=0;
   for(uint32_t i=0;i<sizeof(gPacketBufWithParity);i++)
   {
-      serial.print((uint32_t)gPacketBufWithParity[i],BIN);
+      serial.print(0b00011111 & (uint32_t)gPacketBufWithParity[i],BIN);
       serial.print(", ");
       serial.println((uint32_t)iFakeData[i],BIN);
   }
-  
+  serial.println("READ");
+   EM4100Data *xd = (EM4100Data*)gPacketBufWithParity;
+   //look at parity rows
+   for(int i=0;i<10;i++)
+   {
+    serial.print(xd->lines[i].data_nibb,BIN);
+    serial.print(", ");
+    serial.print(xd->lines[i].parity);
+    serial.print(", ");
+    serial.println(!has_even_parity(xd->lines[i].data_nibb));
+   }
+   //need parity column check
+   
+   //spit out first data byte
+   uint8_t data0 = (xd->lines[0].data_nibb << 4) | xd->lines[1].data_nibb;
+   serial.println(data0,HEX);
   gReadBitCount=0; 
 }
