@@ -332,55 +332,63 @@ void setup()
   pinMode(pLED,OUTPUT);
   digitalWrite(pLED,0);
 }
-int has_even_parity(uint8_t x) 
+//int has_even_parity(uint8_t x) 
+//{
+//  volatile unsigned int count = 0, i, b = 1; 
+//
+//  for(volatile int i = 0; i < 8; i++){
+//    if( x & (b << i) ){count++;} //compares each bit in a row to one
+//  }
+//                                 //counts up all the ones
+//  if( (count % 2) ){return 0;}  // if there is an even amount of ones, return 0
+//
+//  return 1;
+//}
+
+int checkColumnParity(EM4100Data *xd)
 {
-  volatile unsigned int count = 0, i, b = 1;
-
-  for(volatile int i = 0; i < 8; i++){
-    if( x & (b << i) ){count++;} //compares each bit in a row to one
-  }
-                                 //counts up all the ones
-  if( (count % 2) ){return 0;}  // if there is an even amount of ones, return 0
-
-  return 1;
-}
-
-int checkparity(EM4100Data *xd)
-{
-  volatile unsigned int parflag =1; // 1 returned if no errors found
-  for(int i=4;i>0;i--)         //checks each column starting with left most
+  volatile unsigned int columnParityErrors =0;                                      // counts number of column parity errors
+  for(int currentColumn=4;currentColumn>0;currentColumn--)                          // checks each column starting with left most
    {
     
-    volatile unsigned int countc = 0, b = 1;
-    for(int j=0;j<10;j++)
-    {
-  volatile unsigned int countr = 0;
-      for(int c=0;c<4;c++){
-        if(xd->lines[j].data_nibb & b << c){countr++;}                  //adds up every 1 in each row
-      }
-
-      if(countr%2 != xd->lines[j].parity){parflag = 0; return parflag;} //compares actual row parity to parity bit
-        
-      
-      if(xd->lines[j].data_nibb & b << i){countc++;}                    //adds up every 1 in each column
+    volatile unsigned int countPerColumn = 0, b = 1;          
+    for(int currentRow=0;currentRow<10;currentRow++)
+    {       
+      if(xd->lines[currentRow].data_nibb & b << currentColumn){countPerColumn++;}   //adds up every 1 in each column
     }
-    if(countc%2 == 1){                                     
-      if(~xd->lines[10].data_nibb & b << i){parflag = 0; return parflag;}// compares column to parity bit
+    if(countPerColumn%2 == 1){                                     
+      if(~xd->lines[10].data_nibb & b << currentColumn){columnParityErrors++;}      // compares column to parity bit
       
     
     }
-    if(countc%2 == 0){
-      if(xd->lines[10].data_nibb & b << i){parflag = 0; return parflag;}//compares column to parity bit
+    if(countPerColumn%2 == 0){
+      if(xd->lines[10].data_nibb & b << currentColumn){columnParityErrors++;}       //compares column to parity bit
       }
     
     
     
    }
-   return parflag;
+   return columnParityErrors;                                                       //returns number of column parity errors
+}
+
+int checkRowParity(EM4100Data *xd)
+{
+  volatile unsigned int rowParityErrors =0;                                       // counts number of row parity errors
+    volatile unsigned int b = 1;                                                  // variable used for bitwise comparisons
+    for(int currentRow=0;currentRow<10;currentRow++)                              //checks each row
+    {
+  volatile unsigned int countPerRow= 0;                                           
+      for(int currentColumn=0;currentColumn<4;currentColumn++){
+        if(xd->lines[currentRow].data_nibb & b << currentColumn){countPerRow++;}  //adds up every 1 in each row
+      }
+
+      if(countPerRow%2 != xd->lines[currentRow].parity){rowParityErrors++;}       //compares actual row parity to parity bit 
+}
+      return rowParityErrors;                                                     //returns number of row parity errors
 }
 void organize_bytes(EM4100Data *xd){
  for(int i=0;i<10;i=i+2){
-    byte_array[i/2] = (xd->lines[i].data_nibb << 4) | xd->lines[i+1].data_nibb; //combines the first two nibbles into one byte
+    byte_array[i/2] = (xd->lines[i].data_nibb << 4) | xd->lines[i+1].data_nibb;   //combines every two nibbles into one byte
    serial.println(byte_array[i/2],HEX);
  }
 
@@ -442,12 +450,16 @@ void loop()
     serial.print(", ");
     serial.print(xd->lines[i].parity);        //prints the parity bit for each line
     serial.print(", ");
-    serial.println(!has_even_parity(xd->lines[i].data_nibb));
+  //  serial.println(!has_even_parity(xd->lines[i].data_nibb));
    }
    //need parity column check
-   int paritygood = checkparity(xd);  //returns a 0 if there are parity errors
-   Serial.println("return 1 if no parity errors");
-   Serial.println(paritygood);
+   int rowParityErrors = checkRowParity(xd);  //returns a 0 if there are parity errors
+   int columnParityErrors = checkColumnParity(xd);
+   Serial.println("");
+   Serial.println("return # of row parity errors");
+   Serial.println(rowParityErrors);
+   Serial.println("return # of column parity errors");
+   Serial.println(columnParityErrors);
    organize_bytes(xd);                //organizes 10 nibbles into 5 bytes
     
    
