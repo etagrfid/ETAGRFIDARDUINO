@@ -1,5 +1,6 @@
 /*Begining of Auto generated code by Atmel studio */
 #include <Arduino.h>
+#include "Timer.h"
 /*
 #include "ArduinoLowPower.h"
 ArduinoLowPowerClass LowPower;
@@ -39,24 +40,13 @@ typedef struct{
   byte data_nibb:4;
   byte xxxxx:3;
   } EM4100Line;
-typedef struct{
-  EM4100Line lines[11];
-  /*byte d0:1;
-  byte d1:1;
-  byte d2:1;
-  byte d3:1;
-  byte d4:1;
-  byte d5:1;
-  byte d6:1;
-  byte d7:1;*/
-  
-  /*bool p0:1;
-  byte d00_03:4;
-  byte x0:3;
 
-  bool p1:1;
-  byte d04_07:4;
-  byte x1:3;*/
+typedef struct{
+  EM4100Line lines[10];
+  //EM4100Parity parity;
+  bool stop_bit:1;
+  byte colparity:4;
+  byte xxxx:3;
 } EM4100Data;
 #define serial Serial
 #define num_bits 64
@@ -304,38 +294,39 @@ void transmit(bool *idata,int totalBits)
 void setup() 
 {
   // put your setup code here, to run once:
-  serial.begin(230400);
-  delay(100);
+    pinMode(pLED,OUTPUT);
+    digitalWrite(pLED,0);
+	pinMode(outputpin, OUTPUT);
+	digitalWrite(outputpin, HIGH);
+	pinMode(demodOut,INPUT); 
+	serial.begin(230400);
+	delay(100);
 
-  //while (!serial);
-  serial.println("running");
-  serial.print("UINT SIZE:");
-  serial.println(sizeof(unsigned int));
-  serial.print("ULONG SIZE:");
-  serial.println(sizeof(unsigned long));
-  serial.print("Data Size: ");
-  serial.println(sizeof(gFakeData));
-  pinMode(outputpin, OUTPUT);
-  digitalWrite(outputpin, HIGH);
-  delay(10);
-  /*for (int i = 0; i < num_bits; i++) {
-    data[i] = (0 == i % 2);
-  }*/
-  pinMode(demodOut,INPUT);
-  //for M0
-  //attachInterrupt(demodOut, INT_manchesterDecode, CHANGE);
-  //MEGA
-  attachInterrupt(digitalPinToInterrupt(demodOut), INT_manchesterDecode, CHANGE);
-  delay(10);
-
-  pinMode(pLED,OUTPUT);
-  digitalWrite(pLED,0);
+	//while (!serial);
+	serial.println("running");
+	serial.print("UINT SIZE:");
+	serial.println(sizeof(unsigned int));
+	serial.print("ULONG SIZE:");
+	serial.println(sizeof(unsigned long));
+	serial.print("Data Size: ");
+	serial.println(sizeof(gFakeData));
+  
+	delay(10);
+	/*for (int i = 0; i < num_bits; i++) {
+	data[i] = (0 == i % 2);
+	}*/
+	//for M0
+	//attachInterrupt(demodOut, INT_manchesterDecode, CHANGE);
+	//MEGA
+	attachInterrupt(digitalPinToInterrupt(demodOut), INT_manchesterDecode, CHANGE);
+	delay(10);
+	startTimer(4);
 }
-int has_even_parity(uint8_t x)
+int has_even_parity(uint16_t x,int datasize)
 {
   volatile unsigned int count = 0, i, b = 1;
 
-  for(volatile int i = 0; i < 8; i++){
+  for(volatile int i = 0; i < datasize; i++){
     if( x & (b << i) ){count++;}
   }
 
@@ -343,15 +334,51 @@ int has_even_parity(uint8_t x)
 
   return 1;
 }
+
+int CheckManchesterParity(EM4100Data *xd)
+{
+  int row_err_count=0;
+  int col_err_count=0;
+  int err_count = 0;
+  for(int i=0;i<10;i++)
+  {
+    bool this_row = !has_even_parity(xd->lines[i].data_nibb,4);
+    if(this_row != xd->lines[i].parity)
+      row_err_count++;
+  }
+  for(int i=0;i<4;i++)
+  {
+    volatile uint16_t coldata = 0x00;
+    uint16_t imask = 0x01 << i;
+    for(int ii=0;ii<10;ii++)
+	{
+		uint16_t thisbit = xd->lines[ii].data_nibb;
+		thisbit &= imask;
+		thisbit >>= i;
+		coldata |= thisbit  << ii;
+	}
+	
+    bool this_colp = !has_even_parity(coldata,10);
+	volatile uint8_t readparity = xd->colparity;
+    uint8_t read_col_par_bit = (readparity & imask) >> i;
+    if(this_colp != read_col_par_bit)
+      col_err_count++;
+  }
+  err_count = col_err_count+row_err_count;
+}
 void loop() 
 {
   static int foo = 2;
-  
-  if(foo <= 0)
+    
+
+  //if(foo <= 0)
     return;
   foo--;
+  
   delay(750);
-  transmit(gFakeData,sizeof(gFakeData));
+  startTimer(1);
+  //tcConfigure(250);
+  //transmit(gFakeData,sizeof(gFakeData));
   delay(750);
   digitalWrite(pLED,0);
 
@@ -364,7 +391,7 @@ void loop()
   serial.println();
   gIntCount = 0;
   uint32_t errors = 0;
-  for(uint32_t i=0;i<gReadBitCount;i++)
+  /*for(uint32_t i=0;i<gReadBitCount;i++)
   {
       unsigned short newbyte = ReadFromRB();
       int fakeme = 1;
@@ -379,31 +406,38 @@ void loop()
       serial.println();
       if(newbyte != fakeme)
         errors++;
-  }
-  serial.print("Bit errors: ");
-  serial.println(errors);
-  errors=0;
-  for(uint32_t i=0;i<sizeof(gPacketBufWithParity);i++)
+  }*/
+  //serial.print("Bit errors: ");
+  //serial.println(errors);
+  //errors=0;
+ /*for(uint32_t i=0;i<sizeof(gPacketBufWithParity);i++)
   {
       serial.print(0b00011111 & (uint32_t)gPacketBufWithParity[i],BIN);
       serial.print(", ");
       serial.println((uint32_t)iFakeData[i],BIN);
-  }
+  }*/
   serial.println("READ");
    EM4100Data *xd = (EM4100Data*)gPacketBufWithParity;
    //look at parity rows
-   for(int i=0;i<10;i++)
+   /*for(int i=0;i<10;i++)
    {
     serial.print(xd->lines[i].data_nibb,BIN);
     serial.print(", ");
     serial.print(xd->lines[i].parity);
     serial.print(", ");
-    serial.println(!has_even_parity(xd->lines[i].data_nibb));
+    serial.println(!has_even_parity(xd->lines[i].data_nibb,4));
+   }*/
+   int pcheck = CheckManchesterParity(xd);
+   serial.print("Parity: ");
+   serial.println(pcheck);
+
+	serial.print("Data: ");
+   for(int i=0;i<10;i+=2)
+   {
+		uint8_t data0 = (xd->lines[i].data_nibb << 4) | xd->lines[i+1].data_nibb;
+		serial.print(data0,HEX);
+		if(i<8)
+			serial.print(",");
    }
-   //need parity column check
-   
-   //spit out first data byte
-   uint8_t data0 = (xd->lines[0].data_nibb << 4) | xd->lines[1].data_nibb;
-   serial.println(data0,HEX);
-  gReadBitCount=0; 
+   serial.println();
 }
