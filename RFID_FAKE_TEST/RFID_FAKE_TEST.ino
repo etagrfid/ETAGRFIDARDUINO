@@ -1,40 +1,7 @@
 /*Begining of Auto generated code by Atmel studio */
 #include <Arduino.h>
 #include "Timer.h"
-/*
-#include "ArduinoLowPower.h"
-ArduinoLowPowerClass LowPower;
 
-
-
-//Beginning of Auto generated function prototypes by Atmel Studio
-void dummy();
-//End of Auto generated function prototypes by Atmel Studio
-
-
-
-void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-  
-  // Uncomment this function if you wish to attach function dummy when RTC wakes up the chip
-  // LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, dummy, CHANGE);
-}
-
-void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(500);
-  // Triggers a 2000 ms sleep (the device will be woken up only by the registered wakeup sources and by internal RTC)
-  // The power consumption of the chip will drop consistently
-  LowPower.sleep(2000);
-}
-
-void dummy() {
-  // This function will be called once on device wakeup
-  // You can do some little operations here (like changing variables which will be used in the loop)
-  // Remember to avoid calling delay() and long running functions since this functions executes in interrupt context
-}*/
 typedef struct{
   bool parity:1;
   byte data_nibb:4;
@@ -52,14 +19,14 @@ typedef struct{
 #define num_bits 64
 #define outputpin 2
 #define pLED 13
-
+#define MANCHESTER_PACKET_SIZE 55
 //2, 3, 18, 19, 20, 21 for MEGA
 //2, 3 for UNO
 //ALL for M0
 #define demodOut 8
 //#define shd 8
-#define sendDelay 250
-#define pskDelay 290
+#define sendDelay	250
+#define pskDelay	290
 uint8_t xxxxxx;
 //Book keeping vars
 volatile uint32_t gReadBitCount = 0;
@@ -71,6 +38,9 @@ volatile uint32_t   gRingBufRead = 0;
 
 volatile uint8_t    gPacketBufWithParity[11];
 volatile uint32_t   gPacketBufWrite=0;
+volatile uint32_t	gMaxHeaderFound = 0;
+volatile uint8_t    gClientPacketBufWithParity[11];
+volatile uint8_t	gPacketRead = 0;
 bool ReadFromRB(void)
 {
   bool retval =  gbRingBuff[gRingBufRead++];
@@ -102,8 +72,10 @@ void INT_manchesterDecode()
 
   if(time_diff > pskDelay*2)
   {
-    lastRead = thisRead;
-    lastBit = 0;
+	//reset the machine due to no data in long time
+	lastRead = thisRead;
+	lastBit = 0;
+	gReadBitCount=0;
   }
   if(time_diff > pskDelay)
   {
@@ -166,61 +138,75 @@ keep_exe_int:
   //serial.print("r ");
   //serial.println(bval);
   //keep track of interrupts
+  
+	//gReadBitCount++;
 
-  gIntCount++;
-  lastRead = thisRead;
-  gbRingBuff[gRingBufWrite++] = bval;
-  if(gRingBufWrite > gbRingBuffSize)
-    gRingBufWrite=0;
+	gIntCount++;
+	lastRead = thisRead;
+	gbRingBuff[gRingBufWrite++] = bval;
+	
+	if(gRingBufWrite > gbRingBuffSize)
+		gRingBufWrite=0;
     
-  static uint8_t header_count = 0;
-  if(bval == 1 && gReadBitCount == 0)
-  {
-    header_count++;
-  }
-  else if(bval == 1 && lastBit == 1)
-  {
-    header_count++;
-  }
-  else
-    header_count = 0;
-    
-  if(header_count > 8)
-  {
-    digitalWrite(pLED,1);
-    headerFound = 1;
-    header_count = 0;
-    goto theEnd;
+	static uint8_t header_count = 0;
+	if(bval == 1 && gReadBitCount == 0)
+	{
+		header_count++;
+	}
+	else if(bval == 1 && lastBit == 1)
+	{
+		header_count++;
+	}
+	else
+		header_count = 0;
+	
+	if(header_count > gMaxHeaderFound)
+		gMaxHeaderFound = header_count;
+		
+	if(header_count > 8)
+	{
+		//digitalWrite(pLED,1);
+		headerFound  = 1;
+		header_count = 0;
+		goto theEnd;
 
-  }
+	}
 
-  if(headerFound)
-  { 
-    //
-    int bitPosition = gReadBitCount-9;//starts at 0
-    //if(bitPosition > 4)
-    //  goto theEnd;
-    //uint8_t needsShifted = bitPositon % 5;
-    //uint8_t newBitShifted = bval << needsShifted;
-  gPacketBufWithParity[gPacketBufWrite] <<= 1;
-    gPacketBufWithParity[gPacketBufWrite] |= bval;
+	if(headerFound)
+	{ 
+		//
+		int bitPosition = gReadBitCount-9;//starts at 0
+		//if(bitPosition > 4)
+		//  goto theEnd;
+		//uint8_t needsShifted = bitPositon % 5;
+		//uint8_t newBitShifted = bval << needsShifted;
+		gPacketBufWithParity[gPacketBufWrite] <<= 1;
+		gPacketBufWithParity[gPacketBufWrite] |= bval;
 
-    //increment our writer
-    if((bitPosition+1) % 5 == 0)//parity at 5,10....50
-    {
-      gPacketBufWrite++;
-      gPacketBufWithParity[gPacketBufWrite] = 0x00;
-    }
-    //if(gPacketBufWrite>=sizeof(gPacketBufWithParity))
-    //  gPacketBufWrite=0;
+		//increment our writer
+		if((bitPosition+1) % 5 == 0)//parity at 5,10....50
+		{
+			gPacketBufWrite++;
+			gPacketBufWithParity[gPacketBufWrite] = 0x00;
+		}
+		//if(gPacketBufWrite>=sizeof(gPacketBufWithParity))
+		//  gPacketBufWrite=0;
 
-    if(bitPosition == 54)
-    {
-      gPacketBufWrite = 0;
-      headerFound     = 0;
-      header_count    = 0;
-    }
-  }
+		if(bitPosition == 54)
+		{
+			//gReadBitCount	= 0;
+			//gPacketBufWrite = 0;
+			gMaxHeaderFound = 0;
+			headerFound     = 0;
+			header_count    = 0;
+			if(gPacketRead == 0)
+			{
+				memset((uint8_t*)gClientPacketBufWithParity,0x00,sizeof(gClientPacketBufWithParity));
+				memcpy((uint8_t*)gClientPacketBufWithParity,(uint8_t*)gPacketBufWithParity,sizeof(gPacketBufWithParity));
+				gPacketRead = 1;
+			}
+		}
+	}
 theEnd:     
   //assingments to happen at the end
   gReadBitCount++;
@@ -291,6 +277,76 @@ void transmit(bool *idata,int totalBits)
   delay(100);
   digitalWrite(outputpin, HIGH);
 }
+volatile int timerFakeState = 0;
+volatile int timerBitPointer = 0;
+volatile int timerHeaderCount = 0;
+void TC3_Handler() {
+	TcCount16* TC = (TcCount16*) TC3;
+	// If this interrupt is due to the compare register matching the timer count
+	// we toggle the LED.
+	static bool isLEDOn=false;
+	if (TC->INTFLAG.bit.MC0 == 1) {
+		TC->INTFLAG.bit.MC0 = 1; //clear the overflow flag
+		digitalWrite(pLED, isLEDOn);
+		isLEDOn = !isLEDOn;
+		
+		static uint64_t lastInt =	millis();
+		uint64_t nowInt  =	millis();
+		uint64_t elapsedT = nowInt - lastInt;
+		lastInt = nowInt;
+		if(elapsedT > sendDelay)//wait more than the shift delay to reset
+		{
+			timerFakeState=timerHeaderCount=timerBitPointer=0;
+		}
+		
+		if(timerHeaderCount < 9)
+		{
+			if(timerFakeState == 0)
+			{
+				digitalWrite(outputpin, LOW);
+				timerFakeState = 1;
+			}
+			else if(timerFakeState == 1)
+			{	
+				digitalWrite(outputpin, HIGH);
+				timerFakeState = 0;
+				timerHeaderCount++;
+			}
+		}
+		else if(timerBitPointer < MANCHESTER_PACKET_SIZE)
+		{
+			uint8_t fakeBit = gFakeData[timerBitPointer];
+			if(timerFakeState == 0)
+			{
+				digitalWrite(outputpin, !fakeBit);
+				timerFakeState = 1;
+			}
+			else if(timerFakeState == 1)
+			{	
+				digitalWrite(outputpin, fakeBit);
+				timerFakeState = 0;
+				timerBitPointer++;
+			}
+		}
+		else 
+		{
+			digitalWrite(pLED, LOW);
+			digitalWrite(outputpin, HIGH);
+			static int fixed_delay = 0;
+			if(fixed_delay < 4000)
+			{
+				fixed_delay++;
+			}
+			else
+			{
+				fixed_delay = 0;
+				timerFakeState=timerHeaderCount=timerBitPointer=0;
+			}
+			//TC->CTRLA.reg &= ~TC_CTRLA_ENABLE;
+			//timerFakeState=timerHeaderCount=timerBitPointer=0;
+		}
+	}
+}
 void setup() 
 {
   // put your setup code here, to run once:
@@ -304,6 +360,7 @@ void setup()
 
 	//while (!serial);
 	serial.println("running");
+	serial.println();	serial.println();	serial.println();	serial.println();	serial.println();
 	serial.print("UINT SIZE:");
 	serial.println(sizeof(unsigned int));
 	serial.print("ULONG SIZE:");
@@ -320,7 +377,7 @@ void setup()
 	//MEGA
 	attachInterrupt(digitalPinToInterrupt(demodOut), INT_manchesterDecode, CHANGE);
 	delay(10);
-	startTimer(4);
+	startTimer(3800);
 }
 int has_even_parity(uint16_t x,int datasize)
 {
@@ -368,76 +425,97 @@ int CheckManchesterParity(EM4100Data *xd)
 }
 void loop() 
 {
-  static int foo = 2;
-    
+	static int foo = 0;
+    delay(1000);
 
-  //if(foo <= 0)
-    return;
-  foo--;
+	if(foo >= 5)
+		return;
+	foo++;
   
-  delay(750);
-  startTimer(1);
-  //tcConfigure(250);
-  //transmit(gFakeData,sizeof(gFakeData));
-  delay(750);
-  digitalWrite(pLED,0);
+	/*delay(750);
+	startTimer(3800);
+	//transmit(gFakeData,sizeof(gFakeData));
+	delay(1500);
+	digitalWrite(pLED,0);*/
+	if(gPacketRead == 0)
+	{
+		serial.print("No new data ");
+		serial.print(" I ");
+		serial.print(gIntCount);
+		serial.print(" maxH ");
+		serial.println(gMaxHeaderFound);
 
-  serial.print("I: ");
-  serial.print(gIntCount);
-  serial.print(" W: ");
-  serial.print(gRingBufWrite);
-  serial.print(" R: ");
-  serial.print(gRingBufRead);
-  serial.println();
-  gIntCount = 0;
-  uint32_t errors = 0;
-  /*for(uint32_t i=0;i<gReadBitCount;i++)
-  {
-      unsigned short newbyte = ReadFromRB();
-      int fakeme = 1;
-      if(i >= 9)
-        fakeme = (int)gFakeData[i-9];
-      //int fakeme = (int)gFakeData[i];
-      serial.print(i);
-      serial.print(", ");
-      serial.print(newbyte);
-      serial.print(", ");
-      serial.print(fakeme);
-      serial.println();
-      if(newbyte != fakeme)
-        errors++;
-  }*/
-  //serial.print("Bit errors: ");
-  //serial.println(errors);
-  //errors=0;
- /*for(uint32_t i=0;i<sizeof(gPacketBufWithParity);i++)
-  {
-      serial.print(0b00011111 & (uint32_t)gPacketBufWithParity[i],BIN);
-      serial.print(", ");
-      serial.println((uint32_t)iFakeData[i],BIN);
-  }*/
-  serial.println("READ");
-   EM4100Data *xd = (EM4100Data*)gPacketBufWithParity;
-   //look at parity rows
-   /*for(int i=0;i<10;i++)
-   {
-    serial.print(xd->lines[i].data_nibb,BIN);
-    serial.print(", ");
-    serial.print(xd->lines[i].parity);
-    serial.print(", ");
-    serial.println(!has_even_parity(xd->lines[i].data_nibb,4));
-   }*/
-   int pcheck = CheckManchesterParity(xd);
-   serial.print("Parity: ");
-   serial.println(pcheck);
+		//startTimer(3800);
+		//delay(500);
+		return;
+	}
+	
+	serial.print("I: ");
+	serial.print(gIntCount);
+	serial.print(" W: ");
+	serial.print(gRingBufWrite);
+	serial.print(" R: ");
+	serial.print(gRingBufRead);
+	serial.print(" B: ");
+	serial.print(gReadBitCount);
+	serial.println();
+	gIntCount = 0;
+	uint32_t errors = 0;
+	for(uint32_t i=0;i<(gReadBitCount<70 ? gReadBitCount : 70);i++)
+	{
+		unsigned short newbyte = ReadFromRB();
+		int fakeme = 1;
+		if(i >= 9 && i < MANCHESTER_PACKET_SIZE + 9)
+			fakeme = (int)gFakeData[i-9];
+		else if(i >= MANCHESTER_PACKET_SIZE + 9)
+			fakeme = -1;
+		//int fakeme = (int)gFakeData[i];
+		serial.print(i);
+		serial.print(", ");
+		serial.print(newbyte);
+		serial.print(", ");
+		serial.print(fakeme);
+		if(newbyte != fakeme)
+		{   
+			Serial.print(", X");
+			errors++;
+		}
+		serial.println();
+	}
+	serial.print("Read Bits: ");
+	serial.println(gReadBitCount);
+	serial.print("Bit errors: ");
+	serial.println(errors);
+	errors=0;
+	for(uint32_t i=0;i<sizeof(gClientPacketBufWithParity);i++)
+	{
+		serial.print(0b00011111 & (uint32_t)gClientPacketBufWithParity[i],BIN);
+		serial.print(", ");
+		serial.println((uint32_t)iFakeData[i],BIN);
+	}
+	serial.println("READ");
+	EM4100Data *xd = (EM4100Data*)gClientPacketBufWithParity;
+	//look at parity rows
+	for(int i=0;i<10;i++)
+	{
+		serial.print(xd->lines[i].data_nibb,BIN);
+		serial.print(", ");
+		serial.print(xd->lines[i].parity);
+		serial.print(", ");
+		serial.println(!has_even_parity(xd->lines[i].data_nibb,4));
+	}
+	int pcheck = CheckManchesterParity(xd);
+	serial.print("Parity: ");
+	serial.println(pcheck);
 
 	serial.print("Data: ");
-   for(int i=0;i<10;i+=2)
-   {
+	for(int i=0;i<10;i+=2)
+	{
 		uint8_t data0 = (xd->lines[i].data_nibb << 4) | xd->lines[i+1].data_nibb;
 		serial.print(data0,HEX);
 		if(i<8)
 			serial.print(",");
-   }
-   serial.println();
+	}
+	serial.println();
+	gPacketRead	=	0;
 }

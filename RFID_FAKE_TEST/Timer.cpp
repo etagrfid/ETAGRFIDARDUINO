@@ -10,7 +10,7 @@
 
 
 //int potValue = 0;
-bool isLEDOn = false;
+//bool isLEDOn = false;
 
 /*void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -80,13 +80,3 @@ void startTimer(int frequencyHz) {
   while (TC->STATUS.bit.SYNCBUSY == 1);
 }
 
-void TC3_Handler() {
-  TcCount16* TC = (TcCount16*) TC3;
-  // If this interrupt is due to the compare register matching the timer count
-  // we toggle the LED.
-  if (TC->INTFLAG.bit.MC0 == 1) {
-    TC->INTFLAG.bit.MC0 = 1;
-    digitalWrite(LED_PIN, isLEDOn);
-    isLEDOn = !isLEDOn;
-  }
-}
