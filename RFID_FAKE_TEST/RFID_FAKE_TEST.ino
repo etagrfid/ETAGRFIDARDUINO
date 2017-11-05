@@ -168,6 +168,7 @@ keep_exe_int:
 		//digitalWrite(pLED,1);
 		headerFound  = 1;
 		header_count = 0;
+		gPacketBufWrite = 0;
 		goto theEnd;
 
 	}
@@ -196,6 +197,7 @@ keep_exe_int:
 		{
 			//gReadBitCount	= 0;
 			//gPacketBufWrite = 0;
+			gPacketBufWrite = 0;
 			gMaxHeaderFound = 0;
 			headerFound     = 0;
 			header_count    = 0;
