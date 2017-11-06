@@ -50,36 +50,44 @@ bool ReadFromRB(void)
 }
 void INT_manchesterDecode() 
 {
-  static bool headerFound = false;
+	gIntCount++;
 
-  unsigned long curr_time = micros();
-  static unsigned long prev_time = 0;
+	static bool headerFound = false;
+	static uint32_t gLocalIntCount = 0;
+	unsigned long curr_time = micros();
+	static unsigned long prev_time = 0;
   
-  unsigned long time_diff = curr_time - prev_time;
-  prev_time = curr_time;
-  //serial.println(time_diff);
+	unsigned long time_diff = curr_time - prev_time;
+	prev_time = curr_time;
+	//serial.println(time_diff);
   
   
-  bool PinState = digitalRead(demodOut);
-  unsigned short thisRead = 0;
-  if(PinState)
-    thisRead = 1;
+	bool PinState = digitalRead(demodOut);
+	unsigned short thisRead = 0;
+	if(PinState)
+		thisRead = 1;
    
-  static uint8_t lastRead = thisRead;
-  static uint8_t lastBit = 0;
+	static uint8_t lastRead = thisRead;
+	static uint8_t lastBit = 0;
 
-  uint8_t bval = 0;
+	uint8_t bval = 0;
 
-  if(time_diff > pskDelay*2)
-  {
+	if(time_diff > pskDelay*2)
+	{
 	//reset the machine due to no data in long time
-	lastRead = thisRead;
-	lastBit = 0;
-	gReadBitCount=0;
-  }
+		thisRead		=	1;
+		lastRead		=	thisRead;
+		lastBit			=	0;
+		gReadBitCount	=	0;
+		gPacketBufWrite =	0;
+		gMaxHeaderFound =	0;
+		gLocalIntCount	=	0;
+		goto waitfornextInt;
+	}
+	gLocalIntCount++;
   if(time_diff > pskDelay)
   {
-    if(gIntCount > 1)
+    if(gLocalIntCount > 1)
     {
       if(lastRead == 1 && thisRead == 0)
         bval = 0;
@@ -97,7 +105,7 @@ void INT_manchesterDecode()
   }
   else
   {
-    if(gIntCount <= 1)
+    if(gLocalIntCount <= 1)
     {      
       if(thisRead == 1)
       {
@@ -131,8 +139,6 @@ void INT_manchesterDecode()
   goto keep_exe_int;
 waitfornextInt:  
   lastRead = thisRead;
-  //keep track of interrupts
-  gIntCount++;
   return;
 keep_exe_int:
   //serial.print("r ");
@@ -141,7 +147,7 @@ keep_exe_int:
   
 	//gReadBitCount++;
 
-	gIntCount++;
+	//gIntCount++;
 	lastRead = thisRead;
 	gbRingBuff[gRingBufWrite++] = bval;
 	
@@ -169,8 +175,8 @@ keep_exe_int:
 		headerFound  = 1;
 		header_count = 0;
 		gPacketBufWrite = 0;
+		//not data yet
 		goto theEnd;
-
 	}
 
 	if(headerFound)
@@ -201,6 +207,8 @@ keep_exe_int:
 			gMaxHeaderFound = 0;
 			headerFound     = 0;
 			header_count    = 0;
+			gLocalIntCount	=	0;
+
 			if(gPacketRead == 0)
 			{
 				memset((uint8_t*)gClientPacketBufWithParity,0x00,sizeof(gClientPacketBufWithParity));
@@ -240,8 +248,9 @@ bool gFakeData[] = {// 1,1,1,1,1,1,1,1,1,
                 1,0,0,1,0,
                 1,0,1,1,1,
                 1,1,1,1,0};// Column Parity bits and stop bit (0)
-                
-void transmit(bool *idata,int totalBits) 
+bool noiseBits[] = {1,1,1,1,1,0,0,1,0,1,0,1,0,1,1,1,1,1,1};  
+	         
+void transmit(bool *idata,int totalBits,bool *noiseBits,int numberNoiseBits) 
 {
   //int slamcount=0;
   int mics = sendDelay;
@@ -274,6 +283,27 @@ void transmit(bool *idata,int totalBits)
     delayMicroseconds(d2);
     //slamcount+=2;
   }
+	digitalWrite(outputpin, HIGH);
+	delay(650);
+
+	for (int i = 0; i < numberNoiseBits; i++)
+	{
+		if (noiseBits[i])
+		{
+			s1 = 0;
+			s2 = 1;
+		}
+		else if (~noiseBits[i])
+		{
+			s1 = 1;
+			s2 = 0;
+		}
+		digitalWrite(outputpin, s1);
+		delayMicroseconds(d1*3);
+		digitalWrite(outputpin, s2);
+		delayMicroseconds(d2*3);
+		//slamcount+=2;
+	}
   //serial.print("Total flips: ");
   //serial.println(slamcount);
   delay(100);
@@ -289,8 +319,7 @@ void TC3_Handler() {
 	static bool isLEDOn=false;
 	if (TC->INTFLAG.bit.MC0 == 1) {
 		TC->INTFLAG.bit.MC0 = 1; //clear the overflow flag
-		digitalWrite(pLED, isLEDOn);
-		isLEDOn = !isLEDOn;
+		
 		
 		static uint64_t lastInt =	millis();
 		uint64_t nowInt  =	millis();
@@ -299,10 +328,12 @@ void TC3_Handler() {
 		if(elapsedT > sendDelay)//wait more than the shift delay to reset
 		{
 			timerFakeState=timerHeaderCount=timerBitPointer=0;
+			digitalWrite(outputpin, HIGH);
 		}
 		
 		if(timerHeaderCount < 9)
 		{
+			digitalWrite(pLED, HIGH);
 			if(timerFakeState == 0)
 			{
 				digitalWrite(outputpin, LOW);
@@ -332,17 +363,36 @@ void TC3_Handler() {
 		}
 		else 
 		{
-			digitalWrite(pLED, LOW);
-			digitalWrite(outputpin, HIGH);
 			static int fixed_delay = 0;
+			
 			if(fixed_delay < 4000)
 			{
-				fixed_delay++;
+				fixed_delay++;	
 			}
 			else
 			{
 				fixed_delay = 0;
 				timerFakeState=timerHeaderCount=timerBitPointer=0;
+				digitalWrite(outputpin, HIGH);
+			}
+			if(fixed_delay == 1 || fixed_delay >= 3800)
+			{
+				digitalWrite(outputpin, HIGH);
+				digitalWrite(pLED, LOW);
+			}
+			else if(fixed_delay > 250 && fixed_delay < 3500)
+			{
+				static int rand_count = 0;
+				if(rand_count <= 0)
+				{
+					rand_count = random(50,100);
+					digitalWrite(pLED, isLEDOn);
+					digitalWrite(outputpin, random(0,1));
+
+					isLEDOn = !isLEDOn;			
+				}
+				else
+					rand_count--;
 			}
 			//TC->CTRLA.reg &= ~TC_CTRLA_ENABLE;
 			//timerFakeState=timerHeaderCount=timerBitPointer=0;
@@ -359,6 +409,7 @@ void setup()
 	pinMode(demodOut,INPUT); 
 	serial.begin(230400);
 	delay(100);
+	randomSeed(analogRead(0));
 
 	//while (!serial);
 	serial.println("running");
@@ -366,7 +417,7 @@ void setup()
 	serial.print("UINT SIZE:");
 	serial.println(sizeof(unsigned int));
 	serial.print("ULONG SIZE:");
-	serial.println(sizeof(unsigned long));
+	serial.println(sizeof(unsigned long long));
 	serial.print("Data Size: ");
 	serial.println(sizeof(gFakeData));
   
@@ -430,15 +481,17 @@ void loop()
 	static int foo = 0;
     delay(1000);
 
-	if(foo >= 5)
-		return;
+	//if(foo >= 3)
+	//	return;
 	foo++;
   
-	/*delay(750);
-	startTimer(3800);
-	//transmit(gFakeData,sizeof(gFakeData));
-	delay(1500);
-	digitalWrite(pLED,0);*/
+	delay(750);
+	//startTimer(3800);
+	//transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
+	//gPacketRead = 0;
+	//transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
+	//delay(1500);
+	//digitalWrite(pLED,0);
 	if(gPacketRead == 0)
 	{
 		serial.print("No new data ");
@@ -461,7 +514,6 @@ void loop()
 	serial.print(" B: ");
 	serial.print(gReadBitCount);
 	serial.println();
-	gIntCount = 0;
 	uint32_t errors = 0;
 	for(uint32_t i=0;i<(gReadBitCount<70 ? gReadBitCount : 70);i++)
 	{
