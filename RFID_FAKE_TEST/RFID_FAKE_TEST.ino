@@ -85,61 +85,61 @@ void INT_manchesterDecode()
 		goto waitfornextInt;
 	}
 	gLocalIntCount++;
-  if(time_diff > pskDelay)
-  {
-    if(gLocalIntCount > 1)
-    {
-      if(lastRead == 1 && thisRead == 0)
-        bval = 0;
-      else if(lastRead == 0 && thisRead == 1)
-        bval = 1;
-    }
-    else
-    {
-      if(thisRead == 0)
-        bval = 0;
-      else
-        bval = 1;
-      goto waitfornextInt;
-    }
-  }
-  else
-  {
-    if(gLocalIntCount <= 1)
-    {      
-      if(thisRead == 1)
-      {
-        bval = 1;
-      }
-      else if(thisRead == 0)
-      {
-        bval = 0;
-      }
-    }
-    else
-    {
-      if(lastRead == 0 && thisRead == 1 && lastBit == 0)
-      {
-        goto waitfornextInt;
-      }
-      else if(lastRead == 1 && thisRead == 0 && lastBit == 1)
-      {
-        goto waitfornextInt;
-      }
-      else if(lastRead == 0 && thisRead == 1)
-      {
-        bval = 1;
-      }
-      else if(lastRead == 1 && thisRead == 0)
-      {
-        bval = 0;
-      }
-    }
-  }
-  goto keep_exe_int;
+	if(time_diff > pskDelay)
+	{
+		if(gLocalIntCount > 1)
+		{
+			if(lastRead == 1 && thisRead == 0)
+				bval = 0;
+			else if(lastRead == 0 && thisRead == 1)
+				bval = 1;
+		}
+		else
+		{
+			if(thisRead == 0)
+				bval = 0;
+			else
+				bval = 1;
+			goto waitfornextInt;
+		}
+	}
+	else
+	{
+		if(gLocalIntCount <= 1)
+		{      
+			if(thisRead == 1)
+			{
+				bval = 1;
+			}
+			else if(thisRead == 0)
+			{
+				bval = 0;
+			}
+		}
+		else
+		{
+			if(lastRead == 0 && thisRead == 1 && lastBit == 0)
+			{
+				goto waitfornextInt;
+			}
+			else if(lastRead == 1 && thisRead == 0 && lastBit == 1)
+			{
+				goto waitfornextInt;
+			}
+			else if(lastRead == 0 && thisRead == 1)
+			{
+				bval = 1;
+			}
+			else if(lastRead == 1 && thisRead == 0)
+			{
+				bval = 0;
+			}
+		}
+	}
+	goto keep_exe_int;
 waitfornextInt:  
-  lastRead = thisRead;
-  return;
+	lastRead = thisRead;
+	return;
 keep_exe_int:
   //serial.print("r ");
   //serial.println(bval);
