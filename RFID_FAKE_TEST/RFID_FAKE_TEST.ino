@@ -31,23 +31,23 @@ uint8_t xxxxxx;
 //Book keeping vars
 volatile uint32_t gReadBitCount = 0;
 volatile uint32_t gIntCount = 0;
-#define gbRingBuffSize 1024
+/*#define gbRingBuffSize 1024
 volatile uint8_t    gbRingBuff[gbRingBuffSize];
 volatile uint32_t   gRingBufWrite = 0;
 volatile uint32_t   gRingBufRead = 0;
-
+bool ReadFromRB(void)
+{
+	bool retval =  gbRingBuff[gRingBufRead++];
+	if(gRingBufRead > gbRingBuffSize)
+	gRingBufRead = 0;
+	return retval;
+}
+*/
 volatile uint8_t    gPacketBufWithParity[11];
 volatile uint32_t   gPacketBufWrite=0;
 volatile uint32_t	gMaxHeaderFound = 0;
 volatile uint8_t    gClientPacketBufWithParity[11];
 volatile uint8_t	gPacketRead = 0;
-bool ReadFromRB(void)
-{
-  bool retval =  gbRingBuff[gRingBufRead++];
-  if(gRingBufRead > gbRingBuffSize)
-    gRingBufRead = 0;
-  return retval;
-}
 void INT_manchesterDecode() 
 {
 	gIntCount++;
@@ -149,11 +149,11 @@ keep_exe_int:
 
 	//gIntCount++;
 	lastRead = thisRead;
-	gbRingBuff[gRingBufWrite++] = bval;
+	/*gbRingBuff[gRingBufWrite++] = bval;
 	
 	if(gRingBufWrite > gbRingBuffSize)
 		gRingBufWrite=0;
-    
+    */
 	static uint8_t header_count = 0;
 	if(bval == 1 && gReadBitCount == 0)
 	{
@@ -380,12 +380,12 @@ void TC3_Handler() {
 				digitalWrite(outputpin, HIGH);
 				digitalWrite(pLED, LOW);
 			}
-			else if(fixed_delay > 250 && fixed_delay < 3500)
+			else if(fixed_delay > 1 && fixed_delay < 3999)
 			{
 				static int rand_count = 0;
 				if(rand_count <= 0)
 				{
-					rand_count = random(50,100);
+					rand_count = random(1,20);
 					digitalWrite(pLED, isLEDOn);
 					digitalWrite(outputpin, random(0,1));
 
@@ -430,7 +430,7 @@ void setup()
 	//MEGA
 	attachInterrupt(digitalPinToInterrupt(demodOut), INT_manchesterDecode, CHANGE);
 	delay(10);
-	startTimer(3800);
+	startTimer(4000);
 }
 int has_even_parity(uint16_t x,int datasize)
 {
@@ -478,14 +478,14 @@ int CheckManchesterParity(EM4100Data *xd)
 }
 void loop() 
 {
-	static int foo = 0;
-    delay(1000);
+	//static int foo = 0;
+    //delay(1000);
 
 	//if(foo >= 3)
 	//	return;
-	foo++;
+	//foo++;
   
-	delay(750);
+	//delay(750);
 	//startTimer(3800);
 	//transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
 	//gPacketRead = 0;
@@ -494,6 +494,7 @@ void loop()
 	//digitalWrite(pLED,0);
 	if(gPacketRead == 0)
 	{
+		return;
 		serial.print("No new data ");
 		serial.print(" I ");
 		serial.print(gIntCount);
@@ -507,15 +508,15 @@ void loop()
 	
 	serial.print("I: ");
 	serial.print(gIntCount);
-	serial.print(" W: ");
+	/*serial.print(" W: ");
 	serial.print(gRingBufWrite);
 	serial.print(" R: ");
-	serial.print(gRingBufRead);
+	serial.print(gRingBufRead);*/
 	serial.print(" B: ");
 	serial.print(gReadBitCount);
 	serial.println();
 	uint32_t errors = 0;
-	for(uint32_t i=0;i<(gReadBitCount<70 ? gReadBitCount : 70);i++)
+	/*for(uint32_t i=0;i<(gReadBitCount<70 ? gReadBitCount : 70);i++)
 	{
 		unsigned short newbyte = ReadFromRB();
 		int fakeme = 1;
@@ -535,8 +536,8 @@ void loop()
 			errors++;
 		}
 		serial.println();
-	}
-	serial.print("Read Bits: ");
+	}*/
+	/*serial.print("Read Bits: ");
 	serial.println(gReadBitCount);
 	serial.print("Bit errors: ");
 	serial.println(errors);
@@ -546,18 +547,18 @@ void loop()
 		serial.print(0b00011111 & (uint32_t)gClientPacketBufWithParity[i],BIN);
 		serial.print(", ");
 		serial.println((uint32_t)iFakeData[i],BIN);
-	}
+	}*/
 	serial.println("READ");
 	EM4100Data *xd = (EM4100Data*)gClientPacketBufWithParity;
 	//look at parity rows
-	for(int i=0;i<10;i++)
+	/*for(int i=0;i<10;i++)
 	{
 		serial.print(xd->lines[i].data_nibb,BIN);
 		serial.print(", ");
 		serial.print(xd->lines[i].parity);
 		serial.print(", ");
 		serial.println(!has_even_parity(xd->lines[i].data_nibb,4));
-	}
+	}*/
 	int pcheck = CheckManchesterParity(xd);
 	serial.print("Parity: ");
 	serial.println(pcheck);
