@@ -25,13 +25,20 @@ typedef struct{
 //ALL for M0
 #define demodOut 8
 //#define shd 8
-#define sendDelay	250
-#define pskDelay	290
+#define sendDelay		250
+#define pskDelay		290
+#define pskShortDelay	220
+
+#define pskDelayShortLower	200
+#define pskDelayShortUpper	400
+#define pskDelayLongLower	450
+#define pskDelayLongUpper	590
+
 uint8_t xxxxxx;
 //Book keeping vars
 volatile uint32_t gReadBitCount = 0;
 volatile uint32_t gIntCount = 0;
-/*#define gbRingBuffSize 1024
+#define gbRingBuffSize 128
 volatile uint8_t    gbRingBuff[gbRingBuffSize];
 volatile uint32_t   gRingBufWrite = 0;
 volatile uint32_t   gRingBufRead = 0;
@@ -42,7 +49,7 @@ bool ReadFromRB(void)
 	gRingBufRead = 0;
 	return retval;
 }
-*/
+
 volatile uint8_t    gPacketBufWithParity[11];
 volatile uint32_t   gPacketBufWrite=0;
 volatile uint32_t	gMaxHeaderFound = 0;
@@ -52,27 +59,29 @@ void INT_manchesterDecode()
 {
 	gIntCount++;
 
-	static bool headerFound = false;
-	static uint32_t gLocalIntCount = 0;
-	unsigned long curr_time = micros();
-	static unsigned long prev_time = 0;
+	static volatile uint8_t header_count = 0;
+
+	static volatile bool headerFound = false;
+	static volatile uint32_t gLocalIntCount = 0;
+	volatile unsigned long curr_time = micros();
+	volatile static unsigned long prev_time = 0;
   
-	unsigned long time_diff = curr_time - prev_time;
+	volatile unsigned long time_diff = curr_time - prev_time;
 	prev_time = curr_time;
 	//serial.println(time_diff);
   
   
-	bool PinState = digitalRead(demodOut);
-	unsigned short thisRead = 0;
+	volatile bool PinState = digitalRead(demodOut);
+	volatile unsigned short thisRead = 0;
 	if(PinState)
 		thisRead = 1;
    
-	static uint8_t lastRead = thisRead;
-	static uint8_t lastBit = 0;
+	volatile static uint8_t lastRead = thisRead;
+	volatile static uint8_t lastBit = 0;
 
 	uint8_t bval = 0;
 
-	if(time_diff > pskDelay*2)
+	/*if(time_diff > pskDelay*2 || time_diff < pskShortDelay)
 	{
 	//reset the machine due to no data in long time
 		thisRead		=	1;
@@ -83,9 +92,76 @@ void INT_manchesterDecode()
 		gMaxHeaderFound =	0;
 		gLocalIntCount	=	0;
 		goto waitfornextInt;
-	}
+	}*/
 	gLocalIntCount++;
-	if(time_diff > pskDelay)
+	
+	//possible states:
+	//was high, now low + 250us = 0
+	//was low, now high + 250us = 1
+	//was high, now low + 500us = 0
+	//was low, now high + 500us = 1
+	volatile static int syncState = 0;
+	volatile static int secondLastRead = 0;
+	if(syncState == 0 && secondLastRead == 0 && lastRead == 1 && thisRead == 0 && time_diff > pskDelayShortLower && time_diff < pskDelayShortUpper)
+	{
+		//start of a sync
+		syncState = 1;
+		bval = 1;
+		/*gbRingBuff[gRingBufWrite++] = 1;
+		
+		if(gRingBufWrite > gbRingBuffSize)
+			gRingBufWrite=0;
+		
+		header_count = 1;
+		gReadBitCount++;
+		goto waitfornextInt;*/
+	}
+	else if(syncState == 1)
+	{
+		if(lastRead == 1 && thisRead == 0 && time_diff > pskDelayShortLower && time_diff < pskDelayShortUpper)
+		{
+			bval = 0;
+		}
+		else if(lastRead == 0 && thisRead == 1 && time_diff > pskDelayShortLower && time_diff < pskDelayShortUpper)
+		{
+			bval = 1;
+		}
+		//else//should never be here 
+		
+		syncState = 2;
+	}
+	else if(syncState == 2)
+	{
+		if(lastRead == 1 && thisRead == 0 && time_diff > pskDelayLongLower && time_diff < pskDelayLongUpper)
+		{
+			bval = 0;syncState = 2;
+		}
+		else if(lastRead == 0 && thisRead == 1 && time_diff > pskDelayLongLower && time_diff < pskDelayLongUpper)
+		{
+			bval = 1;syncState = 2;
+		}
+		else
+		{
+			syncState = 1;
+			goto waitfornextInt;
+		}
+	}
+	else
+	{
+		//thisRead		=	1;
+		//lastRead		=	thisRead;
+		header_count	=	0;
+		headerFound		=	false;
+		lastBit			=	0;
+		gReadBitCount	=	0;
+		gPacketBufWrite =	0;
+		gMaxHeaderFound =	0;
+		gLocalIntCount	=	0;
+		syncState		=	0;
+		goto waitfornextInt;
+	}
+
+	/*if(time_diff > pskDelay)
 	{
 		if(gLocalIntCount > 1)
 		{
@@ -135,41 +211,58 @@ void INT_manchesterDecode()
 				bval = 0;
 			}
 		}
-	}
+	}*/
 	goto keep_exe_int;
 waitfornextInt:  
+	secondLastRead = lastRead;
 	lastRead = thisRead;
 	return;
 keep_exe_int:
+	secondLastRead = lastRead;
+	lastRead = thisRead;
+
   //serial.print("r ");
   //serial.println(bval);
   //keep track of interrupts
-  
+
 	//gReadBitCount++;
 
 	//gIntCount++;
-	lastRead = thisRead;
-	/*gbRingBuff[gRingBufWrite++] = bval;
+	//lastRead = thisRead;
+	gbRingBuff[gRingBufWrite++] = bval;
 	
 	if(gRingBufWrite > gbRingBuffSize)
 		gRingBufWrite=0;
-    */
-	static uint8_t header_count = 0;
+    
 	if(bval == 1 && gReadBitCount == 0)
 	{
 		header_count++;
 	}
-	else if(bval == 1 && lastBit == 1)
+	else if(bval == 1 && lastBit == 1 && headerFound == false)
 	{
 		header_count++;
 	}
-	else
+	else if(headerFound == false)//do not count this bit
+	{
 		header_count = 0;
-	
+		goto exitNow;
+	}
 	if(header_count > gMaxHeaderFound)
 		gMaxHeaderFound = header_count;
 		
-	if(header_count > 8)
+	if(header_count == 2)
+	{
+		int x = 0;
+	}
+	if(header_count == 3)
+	{
+		int x = 0;
+	}
+	if(header_count == 8)
+	{
+		int x = 0;
+	}
+	if(header_count == 9 && headerFound == false)
 	{
 		//digitalWrite(pLED,1);
 		headerFound  = 1;
@@ -178,7 +271,7 @@ keep_exe_int:
 		//not data yet
 		goto theEnd;
 	}
-
+	
 	if(headerFound)
 	{ 
 		//
@@ -201,8 +294,7 @@ keep_exe_int:
 
 		if(bitPosition == 54)
 		{
-			//gReadBitCount	= 0;
-			//gPacketBufWrite = 0;
+			gReadBitCount	= 0;
 			gPacketBufWrite = 0;
 			gMaxHeaderFound = 0;
 			headerFound     = 0;
@@ -218,9 +310,9 @@ keep_exe_int:
 		}
 	}
 theEnd:     
-  //assingments to happen at the end
+  //assignments to happen at the end
   gReadBitCount++;
-
+exitNow:
   lastBit = bval;
 }
 uint8_t iFakeData[] = {
@@ -401,7 +493,13 @@ void TC3_Handler() {
 }
 void setup() 
 {
-  // put your setup code here, to run once:
+    //Shutdown pin
+	pinMode(7,OUTPUT);
+    digitalWrite(7,0);
+	//MOD PIN
+	pinMode(6,OUTPUT);
+	digitalWrite(6,0);
+
     pinMode(pLED,OUTPUT);
     digitalWrite(pLED,0);
 	pinMode(outputpin, OUTPUT);
@@ -430,7 +528,7 @@ void setup()
 	//MEGA
 	attachInterrupt(digitalPinToInterrupt(demodOut), INT_manchesterDecode, CHANGE);
 	delay(10);
-	startTimer(4000);
+	//startTimer(4000);
 }
 int has_even_parity(uint16_t x,int datasize)
 {
@@ -487,10 +585,10 @@ void loop()
   
 	//delay(750);
 	//startTimer(3800);
-	//transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
+	transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
 	//gPacketRead = 0;
 	//transmit(gFakeData,sizeof(gFakeData),noiseBits,sizeof(noiseBits));
-	//delay(1500);
+	delay(1500);
 	//digitalWrite(pLED,0);
 	if(gPacketRead == 0)
 	{
@@ -516,7 +614,7 @@ void loop()
 	serial.print(gReadBitCount);
 	serial.println();
 	uint32_t errors = 0;
-	/*for(uint32_t i=0;i<(gReadBitCount<70 ? gReadBitCount : 70);i++)
+	for(uint32_t i=0;i<(64/*gReadBitCount<70 ? gReadBitCount : 70*/);i++)
 	{
 		unsigned short newbyte = ReadFromRB();
 		int fakeme = 1;
@@ -536,8 +634,8 @@ void loop()
 			errors++;
 		}
 		serial.println();
-	}*/
-	/*serial.print("Read Bits: ");
+	}
+	serial.print("Read Bits: ");
 	serial.println(gReadBitCount);
 	serial.print("Bit errors: ");
 	serial.println(errors);
@@ -547,7 +645,7 @@ void loop()
 		serial.print(0b00011111 & (uint32_t)gClientPacketBufWithParity[i],BIN);
 		serial.print(", ");
 		serial.println((uint32_t)iFakeData[i],BIN);
-	}*/
+	}
 	serial.println("READ");
 	EM4100Data *xd = (EM4100Data*)gClientPacketBufWithParity;
 	//look at parity rows
