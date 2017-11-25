@@ -26,6 +26,7 @@ typedef struct{
 
 
 
+void dprintf(char *fmt, ... );
 
 void INT_manchesterDecode(void);
 int has_even_parity(uint16_t x,int datasize);
@@ -35,7 +36,7 @@ class ManchesterDecoder
 {
 public:
 	#define zShortLow 150
-	#define zShortHigh 310
+	#define zShortHigh 350
 
 	#define zLongLow 400
 	#define zLongHigh 600

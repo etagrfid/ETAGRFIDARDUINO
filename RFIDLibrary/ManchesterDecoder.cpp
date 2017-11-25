@@ -7,7 +7,17 @@
 #include <Arduino.h>
 
 #include "ManchesterDecoder.h"
-
+#define debug Serial
+#include <stdarg.h>
+void dprintf(char *fmt, ... ){
+	char buf[128]; // resulting string limited to 128 chars
+	va_list args;
+	va_start (args, fmt );
+	vsnprintf(buf, 128, fmt, args);
+	va_end (args);
+	debug.print(buf);
+}
+//#define printf dprintf
 
 #define nBitRingBufLength 1024
 uint8_t		tDiffPinBuf[nBitRingBufLength];
@@ -19,24 +29,32 @@ void INT_manchesterDecode(void)
 {
 	volatile uint32_t timeNow = micros();
 	volatile static uint32_t lastTime = 0;
+	volatile static uint8_t  lastRead = 0;
 	uint32_t fDiff = timeNow - lastTime;
 	lastTime = timeNow;
 	int8_t fTimeClass = ManchesterDecoder::tUnknown;
 	int8_t fVal = !digitalRead(gPIN_demodout);
 	
-	if (fDiff >= zShortLow && fDiff <= zShortHigh)
-	fTimeClass = ManchesterDecoder::tShort;
-	else if ((fDiff >= zLongLow && fDiff <= zLongHigh))
-	fTimeClass = ManchesterDecoder::tLong;
-	else if (fDiff < 10)
-	return;
-
-	tDiffPinBuf[dWriteIndex] = 0;
-	tDiffPinBuf[dWriteIndex] = 0xF0 & (fTimeClass << 4);
-	tDiffPinBuf[dWriteIndex++] |= 0x0F & fVal;
-	if (dWriteIndex >= nBitRingBufLength)
-	dWriteIndex = 0;
-	dDataCount++;
+	if(fVal != lastRead)
+	{
+		if (fDiff >= zShortLow && fDiff <= zShortHigh)
+			fTimeClass = ManchesterDecoder::tShort;
+		else if (fDiff >= zLongLow && fDiff <= zLongHigh)
+			fTimeClass = ManchesterDecoder::tLong;
+		
+		if (fDiff > 15 && fTimeClass != ManchesterDecoder::tUnknown)
+		{
+			tDiffPinBuf[dWriteIndex] = 0;
+			tDiffPinBuf[dWriteIndex] = 0xF0 & (fTimeClass << 4);
+			tDiffPinBuf[dWriteIndex++] |= 0x0F & fVal;
+			if (dWriteIndex >= nBitRingBufLength)
+				dWriteIndex = 0;
+			dDataCount++;
+		}
+		else
+			int x = 44;//debug only
+	}
+	lastRead = fVal;
 }
 
 
@@ -67,9 +85,9 @@ int CheckManchesterParity(EM4100Data *xd)
 	int err_count = 0;
 	for(int i=0;i<10;i++)
 	{
-		bool this_row = !has_even_parity(xd->lines[i].data_nibb,4);
+		bool this_row = has_even_parity(xd->lines[i].data_nibb,4);
 		if(this_row != xd->lines[i].parity)
-		row_err_count++;
+			row_err_count++;
 	}
 	for(int i=0;i<4;i++)
 	{
@@ -83,7 +101,7 @@ int CheckManchesterParity(EM4100Data *xd)
 			coldata |= thisbit  << ii;
 		}
 		
-		bool this_colp = !has_even_parity(coldata,10);
+		bool this_colp = has_even_parity(coldata,10);
 		volatile uint8_t readparity = xd->colparity;
 		uint8_t read_col_par_bit = (readparity & imask) >> i;
 		if(this_colp != read_col_par_bit)
@@ -109,6 +127,8 @@ void ManchesterDecoder::ResetMachine()
 	headerFound = 0;
 	headerCount = 0;
 	syncState = 0;
+	
+	//data saving
 	dataBinWrite = 0;
 	dataBufWrite = 0;
 	dataBinCount = 0;
@@ -134,22 +154,47 @@ void ManchesterDecoder::EnableMonitoring(void)
 }
 int ManchesterDecoder::CheckForPacket(void)
 {
-	if (dDataCount > 512)
+	if (dDataCount >= 512)
+	{
+		detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
 		return	1;
+	}
 	return 0;		
 }
 int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
+	if (dDataCount < 512)
+		return -1;
 	detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
-	for (int i = 0; i < dDataCount; i++)
+	//gPacketRead = 0;
+	for (int i = 0; i < 512; i++)
 	{
 		uint8_t dByte = tDiffPinBuf[dReadIndex++];
+		if (dReadIndex >= nBitRingBufLength)
+			dReadIndex = 0;
 		uint8_t pinR = 0x01 & dByte;
 		uint8_t tClass = (0xF0 & dByte) >> 4;
+		printf("%d ",i);
 		int ret = HandleIntManchester(pinR, tClass);
 		if (ret > 0) // found packet
 		{
-			memcpy(bufout,(EM4100Data*)gClientPacketBufWithParity,sizeof(EM4100Data));
+			EM4100Data *testData = (EM4100Data*)gClientPacketBufWithParity;
+			int pcheck = CheckManchesterParity(testData);
+			gPacketRead = 0;
+			if(pcheck == 0)
+			{
+				int dsize = sizeof(EM4100Data);
+				memset(bufout,0x00,sizeof(EM4100Data));
+				memcpy(bufout,(EM4100Data*)gClientPacketBufWithParity,sizeof(EM4100Data));
+				ResetMachine();
+				memset(tDiffPinBuf,0,nBitRingBufLength);
+				//globals
+				dReadIndex = dWriteIndex;
+				//dReadIndex = 0;
+				dDataCount = 0;
+				
+				return 1;
+			}
 			/*serial.println("FOUND PACKET");
 			serial.println("READ");
 			EM4100Data *xd = (EM4100Data*)gClientPacketBufWithParity;
@@ -165,13 +210,12 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 				serial.print(", ");
 				serial.println(has_even_parity(xd->lines[i].data_nibb,4));
 			}*/
-			gPacketRead = 0;
-			return 1;
+			
 		}
-		if (dReadIndex >= nBitRingBufLength)
-		dReadIndex = 0;
+		
 	}
 	dDataCount = 0;
+	return 0;
 }
 
 int ManchesterDecoder::UpdateMachineUsingClass(int8_t currPin, int8_t timeClass)
@@ -202,46 +246,46 @@ int ManchesterDecoder::StoreNewBit(int8_t newB)
 int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 {
 	if (fTimeClass != ManchesterDecoder::tLong && fTimeClass != ManchesterDecoder::tShort)
-	return 0;
+		return 0;
 
-	//printf("%i T - %d P %d SS %d ", this->intCount, fTimeClass, fVal, this->syncState);
-
+	printf("%i T - %d P %d SS %d ", this->intCount, fTimeClass, fVal, this->syncState);
+	
 	if (this->syncState == 0 &&
 	fVal == 0 && this->lastValue == 1 && this->secondLastValue == 0 &&
 	fTimeClass == ManchesterDecoder::tShort && this->lastTimeClass == ManchesterDecoder::tLong)
 	{
-		//printf("Sync at %d", this->intCount);
+		printf("Sync at %d", this->intCount);
 		this->syncState = 1;
 		this->headerCount = 1;
 		this->headerFound = 0;
 		//dataCap = [];
 		//headerLocation = i;
-		//printf("\n");
+		/////dprintf("\n");
 	}
 	if (this->syncState == 1 && fVal == 1 && this->secondLastValue == 1 && fTimeClass == ManchesterDecoder::tShort && this->lastTimeClass == ManchesterDecoder::tShort)
 	{
 		this->headerCount++;
-		//printf("Up Header at %d, %d", this->intCount, this->headerCount);
+		printf("Up Header at %d, %d", this->intCount, this->headerCount);
 		if (this->headerCount == 9 && this->headerFound == 0)
 		{
-			//printf(" Header at %d\n", this->intCount);
+			printf(" Header at %d\n", this->intCount);
 			this->headerFound = 1;
 			this->syncState = 2;
 			//this->headerLocation = i - 15;
 			//return this->UpdateMachine(pinRead, timeNow, timeClass);
 		}
-		//else
-		//printf("\n");
+		/////else
+		/////	printf("\n");
 	}
 	else if(this->syncState == 1 && fTimeClass == ManchesterDecoder::tLong)
 	{
-		//printf("Reset at %d", this->intCount);
+		printf("Reset at %d\n", this->intCount);
 		this->ResetMachine();
 		return this->UpdateMachineUsingClass(fVal, fTimeClass);
 	}
 	if (this->syncState <= 1)
 	{
-		//printf("\n");
+		printf("\n");
 		return this->UpdateMachineUsingClass(fVal, fTimeClass);
 	}
 
@@ -249,12 +293,12 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 	if (this->syncState == 2 && this->headerFound == 1 && fTimeClass == ManchesterDecoder::tShort)
 	{
 		this->syncState = 3;
-		//printf("%d Skip Short %d\n", this->intCount, fVal);
+		printf("%d Skip Short %d\n", this->intCount, fVal);
 	}
 	else if (this->syncState == 3 && this->headerFound == 1 && fTimeClass == ManchesterDecoder::tShort)
 	{
 		this->syncState = 2;
-		//printf("%d Keep Short %d\n", this->intCount, fVal);
+		printf("%d Keep Short %d\n", this->intCount, fVal);
 		this->StoreNewBit(fVal);
 		//dataCap = [dataCap; fVal];
 		newBit = 1;
@@ -262,24 +306,25 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 	else if ((this->syncState == 2 || this->syncState == 3) && this->headerFound == 1 && fTimeClass == ManchesterDecoder::tLong)
 	{
 		this->syncState = 2;
-		//printf("%d Keep Long %d\n", this->intCount, fVal);
+		printf("%d Keep Long %d\n", this->intCount, fVal);
 		//dataCap = [dataCap; fVal];
 		this->StoreNewBit(fVal);
 		newBit = 1;
 	}
 	else
-	//printf("Dead at %d\n", this->intCount);
+	printf("Dead at %d\n", this->intCount);
 		
 
 	if ((this->dataBinCount-1 % 5) == 0 && this->dataBinCount -1 > 1)
 	{
-		uint8_t checkD = this->dataBuf[this->dataBufWrite-1];
+		uint8_t checkD = this->dataBuf[this->dataBufWrite];
 		uint8_t pCalc = 0;
 		for (int i = 0; i < 4; i++)
-		pCalc = 0x01 & (checkD >> i);
+			pCalc = 0x01 & (checkD >> i);
+			
 		if (pCalc != (0x01 & checkD))
 		{
-			//printf("Error at parity %d\n", this->intCount);
+			printf("Error at parity %d\n", this->intCount);
 			this->ResetMachine();
 		}
 		//(checkD >> 1) %2 != (0x01 & checkD)
@@ -295,10 +340,11 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 			gPacketRead = 1;
 		}
 		//EM4100Data *foo = (EM4100Data*)this->dataBuf;
-		//printf("End of packet at %d\n", this->intCount);
+		printf("End of packet at %d\n", this->intCount);
 		this->ResetMachine();
 		this->UpdateMachineUsingClass(fVal, fTimeClass);
-		return gFoundPackets++;
+		gFoundPackets++;
+		return gFoundPackets;
 	}
 
 	return this->UpdateMachineUsingClass(fVal, fTimeClass);

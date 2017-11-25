@@ -52,12 +52,18 @@ void setup()
 
 void loop() 
 {  
-	delay(750);
-	detachInterrupt(digitalPinToInterrupt(demodOut));
-	if(gManDecoder.CheckForPacket())
+	static int packetsFound = 0;
+	delay(500);
+	int p_ret = gManDecoder.CheckForPacket();
+	if(p_ret > 0)
 	{
 		EM4100Data xd;
-		gManDecoder.DecodeAvailableData(&xd);
+		int dec_ret = gManDecoder.DecodeAvailableData(&xd);
+		if(dec_ret <= 0)
+		{
+			gManDecoder.EnableMonitoring();
+			return;
+		}
 		serial.println("FOUND PACKET");
 		serial.println("READ");
 		//look at parity rows
@@ -80,6 +86,10 @@ void loop()
 			if(i<8)
 				serial.print(",");
 		}
+		serial.println();
+		serial.println(packetsFound++);
 		gManDecoder.EnableMonitoring();
 	}
+	else
+		gManDecoder.EnableMonitoring();
 }
