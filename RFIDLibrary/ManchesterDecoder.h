@@ -41,8 +41,8 @@ public:
 	#define zLongLow 400
 	#define zLongHigh 600
 	int gFoundPackets = 0;
-	volatile uint8_t    gClientPacketBufWithParity[11];
-	volatile uint8_t	gPacketRead = 0;
+	//volatile uint8_t    gClientPacketBufWithParity[11];
+	//volatile uint8_t	gPacketRead = 0;
 
 
 public:

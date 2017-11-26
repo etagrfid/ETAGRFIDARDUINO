@@ -20,11 +20,11 @@ void dprintf(char *fmt, ... ){
 //#define printf dprintf
 
 #define nBitRingBufLength 1024
-uint8_t		tDiffPinBuf[nBitRingBufLength];
-uint16_t	dWriteIndex = 0;
-uint16_t	dReadIndex = 0;
-uint16_t	dDataCount = 0;
-uint8_t		gPIN_demodout	=	8;
+volatile uint8_t		tDiffPinBuf[nBitRingBufLength];
+volatile uint16_t	dWriteIndex = 0;
+volatile uint16_t	dReadIndex = 0;
+volatile uint16_t	dDataCount = 0;
+volatile uint8_t		gPIN_demodout	=	8;
 void INT_manchesterDecode(void)
 {
 	volatile uint32_t timeNow = micros();
@@ -132,7 +132,7 @@ void ManchesterDecoder::ResetMachine()
 	dataBinWrite = 0;
 	dataBufWrite = 0;
 	dataBinCount = 0;
-	dataBuf[0] = 0x00;
+	//dataBuf[0] = 0x00;
 }
 int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t timeClass)
 {
@@ -156,7 +156,7 @@ int ManchesterDecoder::CheckForPacket(void)
 {
 	if (dDataCount >= 512)
 	{
-		detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+		//detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
 		return	1;
 	}
 	return 0;		
@@ -178,16 +178,16 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 		int ret = HandleIntManchester(pinR, tClass);
 		if (ret > 0) // found packet
 		{
-			EM4100Data *testData = (EM4100Data*)gClientPacketBufWithParity;
+			EM4100Data *testData = (EM4100Data*)this->dataBuf;//gClientPacketBufWithParity;
 			int pcheck = CheckManchesterParity(testData);
-			gPacketRead = 0;
+			//gPacketRead = 0;
 			if(pcheck == 0)
 			{
 				int dsize = sizeof(EM4100Data);
 				memset(bufout,0x00,sizeof(EM4100Data));
-				memcpy(bufout,(EM4100Data*)gClientPacketBufWithParity,sizeof(EM4100Data));
+				memcpy(bufout,(EM4100Data*)this->dataBuf,sizeof(EM4100Data));//gClientPacketBufWithParity,sizeof(EM4100Data));
 				ResetMachine();
-				memset(tDiffPinBuf,0,nBitRingBufLength);
+				memset((uint8_t*)tDiffPinBuf,0,nBitRingBufLength);
 				//globals
 				dReadIndex = dWriteIndex;
 				//dReadIndex = 0;
@@ -333,11 +333,11 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 
 	if (this->dataBinCount >= 55)
 	{
-		if(gPacketRead == 0)
+		//if(gPacketRead == 0)
 		{
-			memset((uint8_t*)gClientPacketBufWithParity,0x00,sizeof(gClientPacketBufWithParity));
-			memcpy((uint8_t*)gClientPacketBufWithParity,(uint8_t*)this->dataBuf,sizeof(this->dataBuf));
-			gPacketRead = 1;
+			//memset((uint8_t*)gClientPacketBufWithParity,0x00,sizeof(gClientPacketBufWithParity));
+			//memcpy((uint8_t*)gClientPacketBufWithParity,(uint8_t*)this->dataBuf,sizeof(this->dataBuf));
+			//gPacketRead = 1;
 		}
 		//EM4100Data *foo = (EM4100Data*)this->dataBuf;
 		printf("End of packet at %d\n", this->intCount);
