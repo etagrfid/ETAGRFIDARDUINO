@@ -67,7 +67,7 @@ void loop()
 		serial.println("FOUND PACKET");
 		serial.println("READ");
 		//look at parity rows
-		for(int i=0;i<10;i++)
+		for(int i=0;i<11;i++)
 		{
 			serial.print("[");
 			serial.print(xd.lines[i].data_nibb,HEX);

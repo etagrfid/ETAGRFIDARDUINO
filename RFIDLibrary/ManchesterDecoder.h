@@ -9,19 +9,23 @@
 #ifndef MANCHESTERINCLUDE_H_
 #define MANCHESTERINCLUDE_H_
 
+//struct  __attribute__((__packed__)) my_struct {
+#pragma pack(push, 1)
 typedef struct{
 	bool parity:1;
 	byte data_nibb:4;
 	byte xxxxx:3;
-} EM4100Line;
-
+} __attribute__((__packed__)) EM4100Line;
+#pragma pack(pop)
+#pragma pack(push, 1)
 typedef struct{
 	EM4100Line lines[10];
 	//EM4100Parity parity;
 	bool stop_bit:1;
 	byte colparity:4;
 	byte xxxx:3;
-} EM4100Data;
+} __attribute__((__packed__)) EM4100Data;
+#pragma pack(pop)
 
 
 
@@ -41,11 +45,11 @@ public:
 	#define zLongLow 400
 	#define zLongHigh 600
 	int gFoundPackets = 0;
-	//volatile uint8_t    gClientPacketBufWithParity[11];
+	volatile uint8_t    gClientPacketBufWithParity[11];
 	//volatile uint8_t	gPacketRead = 0;
 
 
-public:
+private:
 	uint8_t mPIN_demodout	=	8;
 	uint8_t headerFound = 0;
 	uint8_t headerCount = 0;
@@ -59,10 +63,10 @@ public:
 	int8_t		lastValue;
 	int8_t		secondLastValue;
 
-	uint8_t		dataBuf[11];
-	uint8_t		dataBinWrite;
-	uint8_t		dataBufWrite;
-	uint8_t		dataBinCount;
+	volatile uint8_t		dataBuf[11];
+	volatile uint8_t		dataBinWrite;
+	volatile uint8_t		dataBufWrite;
+	volatile uint8_t		dataBinCount;
 public:
 	ManchesterDecoder(uint8_t demodPin);
 	void ResetMachine();
