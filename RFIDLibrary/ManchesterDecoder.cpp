@@ -6,6 +6,13 @@
  */ 
 #include <Arduino.h>
 
+#define NIBBLE_TO_BINARY_PATTERN "%c%c%c%c"
+#define NIBBLE_TO_BINARY(byte)  \
+  (byte & 0x08 ? '1' : '0'), \
+  (byte & 0x04 ? '1' : '0'), \
+  (byte & 0x02 ? '1' : '0'), \
+  (byte & 0x01 ? '1' : '0') 
+
 #include "ManchesterDecoder.h"
 #define debug Serial
 #include <stdarg.h>
@@ -109,6 +116,7 @@ int CheckManchesterParity(EM4100Data *xd)
 			col_err_count++;
 	}
 	err_count = col_err_count+row_err_count;
+	return err_count;
 }
 
 
@@ -202,14 +210,15 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 			{
 				for(int i=0;i<10;i++)
 				{
-					debug.print("[");
+					printf("[%X] "NIBBLE_TO_BINARY_PATTERN", %d, %d\n", testData->lines[i].data_nibb,NIBBLE_TO_BINARY(testData->lines[i].data_nibb),testData->lines[i].parity,has_even_parity(testData->lines[i].data_nibb,4));
+					/*debug.print("[");
 					debug.print(testData->lines[i].data_nibb,HEX);
 					debug.print("] ");
 					debug.print(testData->lines[i].data_nibb,BIN);
 					debug.print(", ");	
 					debug.print(testData->lines[i].parity);
 					debug.print(", ");
-					debug.println(has_even_parity(testData->lines[i].data_nibb,4));
+					debug.println(has_even_parity(testData->lines[i].data_nibb,4));*/
 				}
 				debug.print("{P} ");
 				debug.print(testData->colparity,BIN);
@@ -339,12 +348,13 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 
 	if ((this->dataBinCount % 5 == 0)  && this->dataBinCount > 0x00 && this->dataBinCount < 55 && newBit == 1)
 	{
-		uint8_t checkD = this->dataBuf[this->dataBufWrite];
+		uint8_t checkD = this->dataBuf[this->dataBufWrite-1];
+		checkD >>= 1;//remove parity bit
 		uint8_t pCalc = 0;
 		for (int i = 0; i < 4; i++)
-			pCalc = 0x01 & (checkD >> i);
+			pCalc += 0x01 & (checkD >> i);
 			
-		if (pCalc != (0x01 & checkD))
+		if ((pCalc % 2) != (0x01 & this->dataBuf[this->dataBufWrite-1]))
 		{
 			printf("Error at parity %d\n", this->intCount);
 			this->ResetMachine();
