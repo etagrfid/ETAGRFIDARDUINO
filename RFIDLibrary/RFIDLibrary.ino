@@ -40,7 +40,7 @@
 #include "ManchesterDecoder.h"
 
 
-#define serial Serial
+#define serial SerialUSB
 #define pLED 13
 
 //ETAG BOARD
