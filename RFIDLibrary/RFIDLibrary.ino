@@ -42,7 +42,13 @@
 
 #define serial Serial
 #define pLED 13
-#define demodOut 8
+
+//ETAG BOARD
+#define ShutdownPin4095 8
+#define demodOut 30
+
+//#define ShutdownPin4095 7 //test board
+//#define demodOut 8 
 
 ManchesterDecoder gManDecoder(demodOut);
 
@@ -50,11 +56,11 @@ ManchesterDecoder gManDecoder(demodOut);
 void setup() 
 {
   //Shutdown pin
-	pinMode(7,OUTPUT);
-  digitalWrite(7,0);
+	pinMode(ShutdownPin4095,OUTPUT);
+  digitalWrite(ShutdownPin4095,0);
 	//MOD PIN
-	pinMode(6,OUTPUT);
-	digitalWrite(6,0);
+	//pinMode(6,OUTPUT);
+	//digitalWrite(6,0);
   
 	pinMode(demodOut,INPUT); 
 	serial.begin(115200);
@@ -80,7 +86,7 @@ void loop()
 		//serial.println("READ");
 		//look at parity rows
     //use to look at binary card data
-		/*for(int i=0;i<11;i++)
+		for(int i=0;i<11;i++)
 		{
 			serial.print("[");
 			serial.print(xd.lines[i].data_nibb,HEX);
@@ -90,7 +96,7 @@ void loop()
 			serial.print(xd.lines[i].parity);
 			serial.print(", ");
 			serial.println(has_even_parity(xd.lines[i].data_nibb,4));
-		}*/
+		}
 		uint8_t cardID = 0;
 		uint32_t cardNumber = 0;
 		//serial.print("Data: ");

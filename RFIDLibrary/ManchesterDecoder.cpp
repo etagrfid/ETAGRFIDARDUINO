@@ -114,8 +114,8 @@ int has_even_parity(uint16_t x,int datasize)
 			count++;
 		}
 	}
-	//if( (count % 2)==0 )
-  if( (count & 0x01 )==0 )//faster than mod
+	if( (count % 2)==0 )
+  //if( (count & 0x01 )!=0 )//faster than mod?
 	{
 		return 0;
 	}
@@ -372,7 +372,7 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
   #endif
 
 
-	if ((this->dataBinCount % 5 == 0)  && this->dataBinCount > 0x00 && this->dataBinCount < 55 && newBit == 1)
+	if ((this->dataBinCount % 5 == 0)  && this->dataBinCount > 0x00 && this->dataBinCount < 54 && newBit == 1)
 	{
 		uint8_t checkD = this->dataBuf[this->dataBufWrite-1];
 		checkD >>= 1;//remove parity bit
@@ -380,11 +380,11 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 		for (int i = 0; i < 4; i++)
 			pCalc += 0x01 & (checkD >> i);
 
-    if ((pCalc & 0x01) != (0x01 & this->dataBuf[this->dataBufWrite-1]))
-		//if ((pCalc % 2) != (0x01 & this->dataBuf[this->dataBufWrite-1]))
+    //if ((pCalc & 0x01) != (0x01 & this->dataBuf[this->dataBufWrite-1]))
+		if ((pCalc % 2) != (0x01 & this->dataBuf[this->dataBufWrite-1]))
 		{
       #ifdef DEBUG_DECODING
-			printf("Error at parity %d\n", this->intCount);
+			printf("Error at parity %d (%d,%d)\n", this->intCount,pCalc % 2,(0x01 & this->dataBuf[this->dataBufWrite-1]));
       #endif
 			this->ResetMachine();
 		}
