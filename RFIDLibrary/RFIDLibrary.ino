@@ -40,21 +40,24 @@
 #include "ManchesterDecoder.h"
 
 
-#define serial SerialUSB
 #define pLED 13
 
 //ETAG BOARD
+#define serial SerialUSB
 #define ShutdownPin4095 8
 #define demodOut 30
 
-//#define ShutdownPin4095 7 //test board
-//#define demodOut 8 
+/*#define serial Serial
+#define ShutdownPin4095 7 //test board
+#define demodOut 8 */
 
 ManchesterDecoder gManDecoder(demodOut);
 
 
 void setup() 
 {
+  pinMode(PIN_LED,OUTPUT);
+  digitalWrite(PIN_LED,HIGH);
   //Shutdown pin
 	pinMode(ShutdownPin4095,OUTPUT);
   digitalWrite(ShutdownPin4095,0);
@@ -70,6 +73,9 @@ void setup()
 
 void loop() 
 {  
+  digitalWrite(PIN_LED,!digitalRead(PIN_LED));
+  serial.print("Check: ");
+  serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
 	delay(500);
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer

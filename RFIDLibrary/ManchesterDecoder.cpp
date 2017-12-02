@@ -41,9 +41,11 @@
 
 
 #include "ManchesterDecoder.h"
-//#define DEBUG_DECODING
+#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
-  #define debug Serial
+  //#define debug Serial
+  #define debug SerialUSB
+
   #include <stdarg.h>
   void dprintf(char *fmt, ... ){
   	char buf[128]; // resulting string limited to 128 chars
@@ -67,7 +69,7 @@ volatile static uint8_t		tDiffPinBuf[nBitRingBufLength];
 volatile static uint16_t	dWriteIndex = 0;
 volatile static uint16_t	dReadIndex = 0;
 volatile static uint16_t	dDataCount = 0;
-volatile static uint8_t		gPIN_demodout	=	8;  //has default, but the class will override this value
+volatile static uint8_t		gPIN_demodout	=	30;  //has default, but the class will override this value
 //Hardware interrupt trap
 //Looks at the time period from last int and stores with pin read in single byte
 void INT_manchesterDecode(void)
@@ -197,10 +199,17 @@ void ManchesterDecoder::EnableMonitoring(void)
 {
 	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
 }
+int ManchesterDecoder::GetBitIntCount(void)
+{
+  return dDataCount;
+}
 int ManchesterDecoder::CheckForPacket(void)
 {
 	if (dDataCount >= 512)
 	{
+    #ifdef DEBUG_DECODING
+    printf("Data available\n");
+    #endif
 		return	1;
 	}
 	return 0;		
@@ -209,7 +218,11 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
 	if (dDataCount < 512)
 		return -1;
+    
 	detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+  #ifdef DEBUG_DECODING
+  printf("Attempt read\n");
+  #endif
 	for (int i = 0; i < 512; i++)
 	{
 		uint8_t dByte = tDiffPinBuf[dReadIndex++];

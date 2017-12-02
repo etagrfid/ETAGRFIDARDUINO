@@ -109,7 +109,8 @@ public:
 	int UpdateMachineUsingClass(int8_t currPin, int8_t timeClass);
 	int StoreNewBit(int8_t newB);
 	int HandleIntManchester(int8_t fVal, int8_t fTimeClass);
-	
+	int GetBitIntCount(void);
+
 	enum TimeClass { tUnknown = 0,
 		tShort,
 	tLong};
