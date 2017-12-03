@@ -45,7 +45,7 @@
 #define EM4095
 //ETAG BOARD
 #define serial SerialUSB
-#define ShutdownPin4095 8
+#define ShutdownPin 8
 #define demodOut 30
 
 /*#define serial Serial
