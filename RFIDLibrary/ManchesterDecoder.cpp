@@ -41,7 +41,7 @@
 
 
 #include "ManchesterDecoder.h"
-#define DEBUG_DECODING
+//#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
   //#define debug Serial
   #define debug SerialUSB

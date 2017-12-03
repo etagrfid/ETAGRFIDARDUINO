@@ -42,7 +42,7 @@
 
 #define pLED 13
 
-#define EM4095
+//#define EM4095
 //ETAG BOARD
 #define serial SerialUSB
 #define ShutdownPin 8
@@ -69,8 +69,11 @@ void setup()
 	//MOD PIN
 	//pinMode(6,OUTPUT);
 	//digitalWrite(6,0);
-  
+  #ifdef EM4095
 	pinMode(demodOut,INPUT); 
+  #else
+   pinMode(demodOut, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  #endif
 	serial.begin(115200);
 	serial.println("running");
 	gManDecoder.EnableMonitoring();
