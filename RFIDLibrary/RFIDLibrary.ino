@@ -42,13 +42,14 @@
 
 #define pLED 13
 
+#define EM4095
 //ETAG BOARD
 #define serial SerialUSB
 #define ShutdownPin4095 8
 #define demodOut 30
 
 /*#define serial Serial
-#define ShutdownPin4095 7 //test board
+#define ShutdownPin 7 //test board
 #define demodOut 8 */
 
 ManchesterDecoder gManDecoder(demodOut);
@@ -59,8 +60,12 @@ void setup()
   pinMode(PIN_LED,OUTPUT);
   digitalWrite(PIN_LED,HIGH);
   //Shutdown pin
-	pinMode(ShutdownPin4095,OUTPUT);
-  digitalWrite(ShutdownPin4095,0);
+	pinMode(ShutdownPin,OUTPUT);
+  #ifdef EM4095
+  digitalWrite(ShutdownPin,0);
+  #else
+  digitalWrite(ShutdownPin,1);
+  #endif
 	//MOD PIN
 	//pinMode(6,OUTPUT);
 	//digitalWrite(6,0);
