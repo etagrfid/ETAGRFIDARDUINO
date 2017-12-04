@@ -52,28 +52,13 @@
 #define ShutdownPin 7 //test board
 #define demodOut 8 */
 
-ManchesterDecoder gManDecoder(demodOut);
-
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
 
 void setup() 
 {
   pinMode(PIN_LED,OUTPUT);
   digitalWrite(PIN_LED,HIGH);
-  //Shutdown pin
-	pinMode(ShutdownPin,OUTPUT);
-  #ifdef EM4095
-  digitalWrite(ShutdownPin,0);
-  #else
-  digitalWrite(ShutdownPin,1);
-  #endif
-	//MOD PIN
-	//pinMode(6,OUTPUT);
-	//digitalWrite(6,0);
-  #ifdef EM4095
-	pinMode(demodOut,INPUT); 
-  #else
-   pinMode(demodOut, INPUT_PULLUP);  //Use pullup resistors for U2270B
-  #endif
+  
 	serial.begin(115200);
 	serial.println("running");
 	gManDecoder.EnableMonitoring();

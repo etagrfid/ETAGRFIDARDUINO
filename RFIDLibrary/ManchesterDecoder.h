@@ -79,10 +79,13 @@ public:
 	int gFoundPackets = 0;
 	volatile uint8_t    gClientPacketBufWithParity[11];
 	//volatile uint8_t	gPacketRead = 0;
-
+  enum ChipType{ Unknown=0,EM4095, U2270B};
+  enum TimeClass { tUnknown = 0,
+    tShort,
+  tLong};
 
 private:
-	uint8_t mPIN_demodout	=	8;
+	uint8_t mPIN_demodout	=	8,mPIN_shutdown=7;
 	uint8_t headerFound = 0;
 	uint8_t headerCount = 0;
 	uint8_t syncState	= 0;
@@ -94,26 +97,27 @@ private:
 	//int8_t		secondLastTimeClass;
 	int8_t		lastValue;
 	int8_t		secondLastValue;
-
+  ChipType  mChipType;
 	volatile uint8_t		dataBuf[11];
 	volatile uint8_t		dataBinWrite;
 	volatile uint8_t		dataBufWrite;
 	volatile uint8_t		dataBinCount;
 public:
-	ManchesterDecoder(uint8_t demodPin);
+	ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip);
+  int CheckForPacket(void); 
+  int DecodeAvailableData(EM4100Data *bufout);
+  int DisableChip(void);
+  void EnableMonitoring(void);
+  int GetBitIntCount(void);
+
+private:
 	void ResetMachine();
 	int UpdateMachine(int8_t currPin, uint32_t currTime,int8_t timeClass);
-	void EnableMonitoring(void);
-	int CheckForPacket(void);	
-	int DecodeAvailableData(EM4100Data *bufout);
 	int UpdateMachineUsingClass(int8_t currPin, int8_t timeClass);
 	int StoreNewBit(int8_t newB);
 	int HandleIntManchester(int8_t fVal, int8_t fTimeClass);
-	int GetBitIntCount(void);
 
-	enum TimeClass { tUnknown = 0,
-		tShort,
-	tLong};
+
 };
 
 

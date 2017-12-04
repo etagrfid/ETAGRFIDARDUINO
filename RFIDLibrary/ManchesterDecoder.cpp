@@ -158,10 +158,25 @@ int CheckManchesterParity(EM4100Data *xd)
 }
 
 
-ManchesterDecoder::ManchesterDecoder(uint8_t demodPin) 
+ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip) 
 {
 	mPIN_demodout = demodPin;
+  mPIN_shutdown = shutdownPin;
+  mChipType = iChip;
 	pinMode(mPIN_demodout,INPUT);
+  //Shutdown pin
+  pinMode(mPIN_shutdown,OUTPUT);
+  if(mChipType == EM4095)
+  {
+    digitalWrite(mPIN_shutdown,0);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    digitalWrite(mPIN_shutdown,1);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+ 
 	gPIN_demodout = mPIN_demodout;
 	intCount = 0;
 	lastTime = 0;
@@ -169,6 +184,11 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin)
 	lastValue = -1;
 	secondLastValue = -1;
 	ResetMachine();
+}
+int ManchesterDecoder::DisableChip(void)
+{
+  detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+
 }
 void ManchesterDecoder::ResetMachine()
 {
