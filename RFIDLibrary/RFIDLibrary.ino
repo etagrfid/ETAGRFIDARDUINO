@@ -36,37 +36,67 @@
  * Created: 11/14/2017 7:26:06 PM
  *  Author: Jay Wilhelm jwilhelm@ohio.edu
  */ 
+
+
+ //1 Read RFID
+ //2 Sleep
+ //3 Repeat 1
 #include <Arduino.h>
 #include "ManchesterDecoder.h"
+#include <RTCZero.h>
 
+RTCZero rtc;
 
 #define pLED 13
+
 
 //#define EM4095
 //ETAG BOARD
 #define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
+//#define interruptpin 30
 
 /*#define serial Serial
 #define ShutdownPin 7 //test board
 #define demodOut 8 */
 
 ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+void ISRWakeup(void){								//blink when chip wakes up
+  digitalWrite(11, HIGH);
+  //delayMicroseconds(100000);
+  //digitalWrite(11,LOW);
+}
 
 void setup() 
 {
+	pinMode(11, OUTPUT);
   pinMode(PIN_LED,OUTPUT);
   digitalWrite(PIN_LED,HIGH);
-  
 	serial.begin(115200);
 	serial.println("running");
 	gManDecoder.EnableMonitoring();
+  delay(2000);
+  rtc.begin();
+  rtc.setTime(0,00,00);
+  rtc.setDate(24,9,16);
+  rtc.setAlarmTime(00,00,10);			//sleep for ten seconds
+  rtc.enableAlarm(rtc.MATCH_HHMMSS);
+  rtc.attachInterrupt(ISRWakeup);
+  digitalWrite(ShutdownPin, LOW);        //Turn off RFID chip to reduce power
+  rtc.standbyMode();						//Put chip to sleep
+  digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on
 }
 
 void loop() 
-{  
-  digitalWrite(PIN_LED,!digitalRead(PIN_LED));
+{
+  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
+  // {
+  //  pinMode( ul, INPUT ) ;
+  // }
+  //USBDevice.init();      //Including this increases power by ~5mA during sleep mode
+  //USBDevice.attach();
+  
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
@@ -81,10 +111,6 @@ void loop()
 			gManDecoder.EnableMonitoring();
 			return;
 		}
-		//serial.println("FOUND PACKET");
-		//serial.println("READ");
-		//look at parity rows
-    //use to look at binary card data
 		for(int i=0;i<11;i++)
 		{
 			serial.print("[");
@@ -103,9 +129,7 @@ void loop()
 		{
 			uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
 			//use to look at hex card data
-			/*serial.print(data0,HEX);
-			if(i<8)
-				serial.print(",");*/
+			
 			if(i<2)
 			{
 				cardID = data0;
@@ -115,15 +139,31 @@ void loop()
 				cardNumber <<= 8;
 				cardNumber |= data0;
 			}
-		}
+		}  
+    //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
 		serial.println();
 		serial.print("Card ID: ");
+		digitalWrite(11, HIGH); //blink led on 11 when tag is read
+		delay(50);
+		digitalWrite(11,LOW);
+		delay(50);
+		digitalWrite(11, HIGH);
+		delay(50);
+		digitalWrite(11,LOW);
+		delay(50);
+		digitalWrite(11, HIGH);
+		delay(50);
+		digitalWrite(11,LOW);	
 		serial.println(cardID);
 		serial.print("Card Number: ");
 		serial.println(cardNumber);
-		//serial.println();
-		//serial.println(packetsFound++);
+		serial.println();
+		serial.println(packetsFound++); 
 	}
-  gManDecoder.EnableMonitoring(); //re-enable the interrupt
-
+  gManDecoder.EnableMonitoring(); //re-enable the interrupt 
+  //USBDevice.detach();
+  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
+  // {
+  //  pinMode( ul, OUTPUT );
+  // }
 }
