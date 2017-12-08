@@ -107,9 +107,10 @@ public:
   int CheckForPacket(void); 
   int DecodeAvailableData(EM4100Data *bufout);
   int DisableChip(void);
-  void EnableMonitoring(void);
+  int EnableMonitoring(void);
   int GetBitIntCount(void);
-
+  int PrepareForSleep(void);
+  int WakeupFromSleep(void);
 private:
 	void ResetMachine();
 	int UpdateMachine(int8_t currPin, uint32_t currTime,int8_t timeClass);

@@ -47,15 +47,10 @@
 
 RTCZero rtc;
 
-#define pLED 13
-
-
-//#define EM4095
 //ETAG BOARD
 #define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
-//#define interruptpin 30
 
 /*#define serial Serial
 #define ShutdownPin 7 //test board
@@ -75,7 +70,7 @@ void setup()
   digitalWrite(PIN_LED,HIGH);
 	serial.begin(115200);
 	serial.println("running");
-	gManDecoder.EnableMonitoring();
+	/*USBDevice.detach();
   delay(2000);
   rtc.begin();
   rtc.setTime(0,00,00);
@@ -85,7 +80,14 @@ void setup()
   rtc.attachInterrupt(ISRWakeup);
   digitalWrite(ShutdownPin, LOW);        //Turn off RFID chip to reduce power
   rtc.standbyMode();						//Put chip to sleep
-  digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on
+  //digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on
+  USBDevice.init();      //Including this increases power by ~5mA during sleep mode
+  USBDevice.attach();
+  delay(2000);
+  serial.begin(115200);
+  serial.println("wakeup");
+  gManDecoder.WakeupFromSleep();*/
+  gManDecoder.EnableMonitoring();
 }
 
 void loop() 
@@ -94,13 +96,14 @@ void loop()
   // {
   //  pinMode( ul, INPUT ) ;
   // }
-  //USBDevice.init();      //Including this increases power by ~5mA during sleep mode
-  //USBDevice.attach();
+
   
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
 	delay(500);
+  digitalWrite(PIN_LED,!digitalRead(PIN_LED));
+
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret > 0)
 	{
@@ -140,7 +143,6 @@ void loop()
 				cardNumber |= data0;
 			}
 		}  
-    //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
 		serial.println();
 		serial.print("Card ID: ");
 		digitalWrite(11, HIGH); //blink led on 11 when tag is read

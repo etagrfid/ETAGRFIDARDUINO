@@ -41,7 +41,7 @@
 
 
 #include "ManchesterDecoder.h"
-//#define DEBUG_DECODING
+#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
   //#define debug Serial
   #define debug SerialUSB
@@ -163,7 +163,8 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 	mPIN_demodout = demodPin;
   mPIN_shutdown = shutdownPin;
   mChipType = iChip;
-	pinMode(mPIN_demodout,INPUT);
+
+  pinMode(mPIN_demodout,INPUT);
   //Shutdown pin
   pinMode(mPIN_shutdown,OUTPUT);
   if(mChipType == EM4095)
@@ -176,6 +177,7 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
     digitalWrite(mPIN_shutdown,1);
     pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
   }
+  //WakeupFromSleep();
  
 	gPIN_demodout = mPIN_demodout;
 	intCount = 0;
@@ -185,10 +187,39 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 	secondLastValue = -1;
 	ResetMachine();
 }
+int ManchesterDecoder::PrepareForSleep(void)
+{
+  return 0;
+}
+int ManchesterDecoder::WakeupFromSleep(void)
+{
+  pinMode(mPIN_demodout,INPUT);
+  //Shutdown pin
+  pinMode(mPIN_shutdown,OUTPUT);
+  if(mChipType == EM4095)
+  {
+    //digitalWrite(mPIN_shutdown,0);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    //digitalWrite(mPIN_shutdown,1);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+  return 0;
+}
 int ManchesterDecoder::DisableChip(void)
 {
   detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
-
+  if(mChipType == EM4095)
+  {
+    digitalWrite(mPIN_shutdown,1);
+  }
+  else if(mChipType == U2270B)
+  {  
+    digitalWrite(mPIN_shutdown,0);
+  }
+  return 0;
 }
 void ManchesterDecoder::ResetMachine()
 {
@@ -215,9 +246,20 @@ int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t ti
 	intCount++;
 	return 0;
 }
-void ManchesterDecoder::EnableMonitoring(void)
+int ManchesterDecoder::EnableMonitoring(void)
 {
 	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
+  if(mChipType == EM4095)
+  {
+    digitalWrite(mPIN_shutdown,0);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    digitalWrite(mPIN_shutdown,1);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+  return 0;
 }
 int ManchesterDecoder::GetBitIntCount(void)
 {
@@ -259,7 +301,7 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 			//gPacketRead = 0;
 			if(pcheck == 0)
 			{
-				int dsize = sizeof(EM4100Data);
+				//int dsize = sizeof(EM4100Data);
 				memset(bufout,0x00,sizeof(EM4100Data));
 				memcpy(bufout,(EM4100Data*)this->gClientPacketBufWithParity,sizeof(EM4100Data));//gClientPacketBufWithParity,sizeof(EM4100Data));
 				ResetMachine();
