@@ -36,74 +36,99 @@
  * Created: 11/14/2017 7:26:06 PM
  *  Author: Jay Wilhelm jwilhelm@ohio.edu
  */ 
-
-
- //1 Read RFID
- //2 Sleep
- //3 Repeat 1
 #include <Arduino.h>
 #include "ManchesterDecoder.h"
-#include <RTCZero.h>
+#include "Adafruit_ZeroTimer.h"
 
-RTCZero rtc;
 
 //ETAG BOARD
-#define serial SerialUSB
+/*#define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
-
-/*#define serial Serial
-#define ShutdownPin 7 //test board
-#define demodOut 8 */
-
 ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
-void ISRWakeup(void){								//blink when chip wakes up
-  digitalWrite(11, HIGH);
-  //delayMicroseconds(100000);
-  //digitalWrite(11,LOW);
+*/
+
+#define serial Serial
+#define ShutdownPin 7 //test board
+#define demodOut 8 
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);
+
+Adafruit_ZeroTimer zt3 = Adafruit_ZeroTimer(3);
+// the timer 3 callbacks
+
+
+void Timer3Callback0(struct tc_module *const module_inst)
+{
+  digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+  //Exit deep sleep
+  //SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+}
+void StartTimer3(void)
+{
+  zt3.configure(TC_CLOCK_PRESCALER_DIV1024, // prescaler
+                TC_COUNTER_SIZE_16BIT,   // bit width of timer/counter
+                TC_WAVE_GENERATION_NORMAL_PWM // frequency or PWM mode 
+                );
+
+  zt3.setCompare(0, 0xFFFE); 
+  zt3.setCallback(true, TC_CALLBACK_CC_CHANNEL0, Timer3Callback0);  // this one sets pin low
+  zt3.enable(true);
+}
+void DeepSleep(void)
+{
+  //SCB->SCR |= SCB_SCR_SLEEPONEXIT_Msk;
+  //SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+  __DSB(); /* Ensure effect of last store takes effect */
+  __WFI();
 }
 
 void setup() 
 {
-	pinMode(11, OUTPUT);
   pinMode(PIN_LED,OUTPUT);
-  digitalWrite(PIN_LED,HIGH);
+  digitalWrite(PIN_LED,LOW);
 	serial.begin(115200);
+  delay(500);
 	serial.println("running");
-	/*USBDevice.detach();
   delay(2000);
-  rtc.begin();
-  rtc.setTime(0,00,00);
-  rtc.setDate(24,9,16);
-  rtc.setAlarmTime(00,00,10);			//sleep for ten seconds
-  rtc.enableAlarm(rtc.MATCH_HHMMSS);
-  rtc.attachInterrupt(ISRWakeup);
-  digitalWrite(ShutdownPin, LOW);        //Turn off RFID chip to reduce power
-  rtc.standbyMode();						//Put chip to sleep
-  //digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on
-  USBDevice.init();      //Including this increases power by ~5mA during sleep mode
-  USBDevice.attach();
-  delay(2000);
-  serial.begin(115200);
-  serial.println("wakeup");
-  gManDecoder.WakeupFromSleep();*/
-  gManDecoder.EnableMonitoring();
+
+  //Tc *const tc_modules[TC_INST_NUM] = TC3;
+  //config_tc.clock_source = GCLK_GENERATOR_1;
+  
+  
+  //gManDecoder.EnableMonitoring();
+  StartTimer3();
+  DeepSleep();
 }
 
 void loop() 
-{
-  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
-  // {
-  //  pinMode( ul, INPUT ) ;
-  // }
-
+{  
+  //USBDevice.init();      //Including this increases power by ~5mA during sleep mode
+  //USBDevice.attach();
+  serial.begin(115200);
+  delay(50);
+  //digitalWrite(PIN_LED, !digitalRead(PIN_LED));
+  serial.print("Wakeup ");
+  static int wakeCount = 0;
+  serial.println(wakeCount++);
+  delay(50);
+  gManDecoder.DisableChip();
+  DeepSleep();
+  return;
   
+  //enable reading and pause for a bit to get data
+  gManDecoder.EnableMonitoring();
+
+
+
+
+  //Normal reading cycle
+  delay(1000);
+  
+  //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
-	delay(500);
-  digitalWrite(PIN_LED,!digitalRead(PIN_LED));
-
+	//delay(500);
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret > 0)
 	{
@@ -114,6 +139,10 @@ void loop()
 			gManDecoder.EnableMonitoring();
 			return;
 		}
+		//serial.println("FOUND PACKET");
+		//serial.println("READ");
+		//look at parity rows
+    //use to look at binary card data
 		for(int i=0;i<11;i++)
 		{
 			serial.print("[");
@@ -132,7 +161,9 @@ void loop()
 		{
 			uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
 			//use to look at hex card data
-			
+			/*serial.print(data0,HEX);
+			if(i<8)
+				serial.print(",");*/
 			if(i<2)
 			{
 				cardID = data0;
@@ -142,30 +173,16 @@ void loop()
 				cardNumber <<= 8;
 				cardNumber |= data0;
 			}
-		}  
+		}
 		serial.println();
 		serial.print("Card ID: ");
-		digitalWrite(11, HIGH); //blink led on 11 when tag is read
-		delay(50);
-		digitalWrite(11,LOW);
-		delay(50);
-		digitalWrite(11, HIGH);
-		delay(50);
-		digitalWrite(11,LOW);
-		delay(50);
-		digitalWrite(11, HIGH);
-		delay(50);
-		digitalWrite(11,LOW);	
 		serial.println(cardID);
 		serial.print("Card Number: ");
 		serial.println(cardNumber);
-		serial.println();
-		serial.println(packetsFound++); 
+		//serial.println();
+		//serial.println(packetsFound++);
+   delay(100);
 	}
-  gManDecoder.EnableMonitoring(); //re-enable the interrupt 
-  //USBDevice.detach();
-  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
-  // {
-  //  pinMode( ul, OUTPUT );
-  // }
+  gManDecoder.EnableMonitoring(); //re-enable the interrupt
+  //gManDecoder.DisableChip();
 }
