@@ -43,11 +43,8 @@
  //3 Repeat 1
 #include <Arduino.h>
 #include "ManchesterDecoder.h"
-#include <RTCZero.h>
 
-RTCZero rtc;
-
-#define pLED 13
+#define LED_PIN 13
 
 
 //#define EM4095
@@ -62,12 +59,76 @@ RTCZero rtc;
 #define demodOut 8 */
 
 ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
-void ISRWakeup(void){								//blink when chip wakes up
-  digitalWrite(11, HIGH);
-  //delayMicroseconds(100000);
-  //digitalWrite(11,LOW);
+int TC3_flag = 0;
+
+void sleep()
+{
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+
+    /*if (USB->DEVICE.FSMSTATUS.bit.FSMSTATE == USB_FSMSTATUS_FSMSTATE_SUSPEND_Val) 
+    {
+
+        USBDevice.detach();
+
+        __WFI();
+
+        USBDevice.attach();
+        USB->DEVICE.CTRLB.bit.UPRSM = 0x01u;
+        while (USB->DEVICE.CTRLB.bit.UPRSM);
+    }
+    else*/
+      __WFI();
+}
+void TCconfig()
+{
+    const uint8_t GCLK_SRC = 4;
+
+    SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
+
+    GCLK->GENDIV.reg = GCLK_GENDIV_ID(GCLK_SRC) | GCLK_GENDIV_DIV(2);
+    while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY);
+
+    GCLK->GENCTRL.reg = GCLK_GENCTRL_GENEN |
+            GCLK_GENCTRL_SRC_XOSC32K |
+            GCLK_GENCTRL_ID(GCLK_SRC) |
+            GCLK_GENCTRL_RUNSTDBY;
+    while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY);
+
+    PM->APBCMASK.reg |= PM_APBCMASK_TC3;
+
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN |
+            GCLK_CLKCTRL_GEN(GCLK_SRC) |
+            GCLK_CLKCTRL_ID(GCM_TCC2_TC3);
+    while (GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY);
+
+    TC3->COUNT8.CTRLA.reg &= ~TC_CTRLA_ENABLE;
+    while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
+
+    TC3->COUNT8.CTRLA.reg = TC_CTRLA_MODE_COUNT8 |
+            TC_CTRLA_RUNSTDBY |
+            TC_CTRLA_PRESCALER_DIV1024;
+    while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
+
+
+    TC3->COUNT8.INTENSET.reg = TC_INTENSET_OVF;
+    while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
+
+    TC3->COUNT8.CTRLA.reg |= TC_CTRLA_ENABLE;
+    while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
+
+    NVIC_EnableIRQ(TC3_IRQn);
+    NVIC_SetPriority(TC3_IRQn, 0x00);
 }
 
+//Interrupt Service Routine
+void TC3_Handler()
+{
+    if (TC3->COUNT8.INTFLAG.bit.OVF) 
+    {
+        TC3->COUNT8.INTFLAG.bit.OVF = 1;
+        TC3_flag = true;
+    }
+}
 void setup() 
 {
 	pinMode(11, OUTPUT);
@@ -75,8 +136,8 @@ void setup()
   digitalWrite(PIN_LED,HIGH);
 	serial.begin(115200);
 	serial.println("running");
-	gManDecoder.EnableMonitoring();
-  delay(2000);
+	//gManDecoder.EnableMonitoring();
+  /*delay(2000);
   rtc.begin();
   rtc.setTime(0,00,00);
   rtc.setDate(24,9,16);
@@ -85,22 +146,34 @@ void setup()
   rtc.attachInterrupt(ISRWakeup);
   digitalWrite(ShutdownPin, LOW);        //Turn off RFID chip to reduce power
   rtc.standbyMode();						//Put chip to sleep
-  digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on
+  digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on*/
 }
 
 void loop() 
 {
-  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
-  // {
-  //  pinMode( ul, INPUT ) ;
-  // }
-  //USBDevice.init();      //Including this increases power by ~5mA during sleep mode
-  //USBDevice.attach();
-  
+  if (TC3_flag) 
+  {
+    digitalWrite(LED_PIN,HIGH);
+    delay(100);
+    digitalWrite(LED_PIN,LOW);
+    serial.begin(115200);
+    delay(50);
+    serial.println("wakeup");
+    gManDecoder.EnableMonitoring(); //re-enable the interrupt 
+    delay(1000);
+    AttemptRFIDReading();
+    TC3_flag = 0;
+  }
+  gManDecoder.DisableChip();
+  sleep();
+}
+ void AttemptRFIDReading()
+ { 
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
-	delay(500);
+	//delay(500);
+  //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret > 0)
 	{
@@ -140,7 +213,7 @@ void loop()
 				cardNumber |= data0;
 			}
 		}  
-    //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
+    
 		serial.println();
 		serial.print("Card ID: ");
 		digitalWrite(11, HIGH); //blink led on 11 when tag is read
@@ -160,10 +233,4 @@ void loop()
 		serial.println();
 		serial.println(packetsFound++); 
 	}
-  gManDecoder.EnableMonitoring(); //re-enable the interrupt 
-  //USBDevice.detach();
-  // for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ )
-  // {
-  //  pinMode( ul, OUTPUT );
-  // }
 }

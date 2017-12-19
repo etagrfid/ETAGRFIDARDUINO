@@ -38,8 +38,6 @@
  */ 
 #include <Arduino.h>
 
-
-
 #include "ManchesterDecoder.h"
 //#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
@@ -99,8 +97,8 @@ void INT_manchesterDecode(void)
 				dWriteIndex = 0;
 			dDataCount++;
 		}
-		else
-			volatile int x = 44;//debug only
+		//else
+		//	volatile int x = 44;//debug only
 	}
 	lastRead = fVal;
 }
@@ -108,7 +106,7 @@ void INT_manchesterDecode(void)
 
 int has_even_parity(uint16_t x,int datasize)
 {
-	volatile unsigned int count = 0, i, b = 1;
+	volatile unsigned int count = 0, b = 1;
 	for(volatile int i = 0; i < datasize; i++)
 	{
 		if( x & (b << i) )
@@ -188,7 +186,15 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 int ManchesterDecoder::DisableChip(void)
 {
   detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
-
+  if(mChipType == EM4095)
+  {
+    digitalWrite(mPIN_shutdown,1);//OFF
+  }
+  else if(mChipType == U2270B)
+  {  
+    digitalWrite(mPIN_shutdown,0);//OFF
+  }
+  return 0;
 }
 void ManchesterDecoder::ResetMachine()
 {
@@ -259,7 +265,7 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 			//gPacketRead = 0;
 			if(pcheck == 0)
 			{
-				int dsize = sizeof(EM4100Data);
+				//int dsize = sizeof(EM4100Data);
 				memset(bufout,0x00,sizeof(EM4100Data));
 				memcpy(bufout,(EM4100Data*)this->gClientPacketBufWithParity,sizeof(EM4100Data));//gClientPacketBufWithParity,sizeof(EM4100Data));
 				ResetMachine();
@@ -277,7 +283,7 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 
 				for(int i=0;i<10;i++)
 				{
-					printf("[%X] "NIBBLE_TO_BINARY_PATTERN", %d, %d\n", testData->lines[i].data_nibb,NIBBLE_TO_BINARY(testData->lines[i].data_nibb),testData->lines[i].parity,has_even_parity(testData->lines[i].data_nibb,4));
+					printf("[%X] " NIBBLE_TO_BINARY_PATTERN ", %d, %d\n", testData->lines[i].data_nibb,NIBBLE_TO_BINARY(testData->lines[i].data_nibb),testData->lines[i].parity,has_even_parity(testData->lines[i].data_nibb,4));
 					/*debug.print("[");
 					debug.print(testData->lines[i].data_nibb,HEX);
 					debug.print("] ");
