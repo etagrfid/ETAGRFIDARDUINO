@@ -36,29 +36,24 @@
  * Created: 11/14/2017 7:26:06 PM
  *  Author: Jay Wilhelm jwilhelm@ohio.edu
  */ 
-
-
- //1 Read RFID
- //2 Sleep
- //3 Repeat 1
 #include <Arduino.h>
 #include "ManchesterDecoder.h"
 
 #define LED_PIN 13
 
 
-//#define EM4095
+
 //ETAG BOARD
 #define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
-//#define interruptpin 30
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+
 
 /*#define serial Serial
 #define ShutdownPin 7 //test board
-#define demodOut 8 */
-
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+#define demodOut 8 
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);*/
 int TC3_flag = 0;
 
 void sleep()
@@ -79,6 +74,7 @@ void sleep()
     else*/
       __WFI();
 }
+
 void TCconfig()
 {
     const uint8_t GCLK_SRC = 4;
@@ -131,11 +127,12 @@ void TC3_Handler()
 }
 void setup() 
 {
-	pinMode(11, OUTPUT);
-  pinMode(PIN_LED,OUTPUT);
-  digitalWrite(PIN_LED,HIGH);
+	pinMode(PIN_LED,OUTPUT);
+	digitalWrite(PIN_LED,LOW);
 	serial.begin(115200);
+	delay(500);
 	serial.println("running");
+
 	//gManDecoder.EnableMonitoring();
   /*delay(2000);
   rtc.begin();
@@ -169,11 +166,10 @@ void loop()
 }
  void AttemptRFIDReading()
  { 
-  serial.print("Check: ");
-  serial.println(gManDecoder.GetBitIntCount());
+
+	serial.print("Check: ");
+	serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
-	//delay(500);
-  //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret > 0)
 	{
@@ -184,6 +180,10 @@ void loop()
 			gManDecoder.EnableMonitoring();
 			return;
 		}
+		//serial.println("FOUND PACKET");
+		//serial.println("READ");
+		//look at parity rows
+    //use to look at binary card data
 		for(int i=0;i<11;i++)
 		{
 			serial.print("[");
@@ -202,7 +202,9 @@ void loop()
 		{
 			uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
 			//use to look at hex card data
-			
+			/*serial.print(data0,HEX);
+			if(i<8)
+				serial.print(",");*/
 			if(i<2)
 			{
 				cardID = data0;
@@ -212,25 +214,16 @@ void loop()
 				cardNumber <<= 8;
 				cardNumber |= data0;
 			}
-		}  
-    
+
+		}
 		serial.println();
 		serial.print("Card ID: ");
-		digitalWrite(11, HIGH); //blink led on 11 when tag is read
-		delay(50);
-		digitalWrite(11,LOW);
-		delay(50);
-		digitalWrite(11, HIGH);
-		delay(50);
-		digitalWrite(11,LOW);
-		delay(50);
-		digitalWrite(11, HIGH);
-		delay(50);
-		digitalWrite(11,LOW);	
 		serial.println(cardID);
 		serial.print("Card Number: ");
 		serial.println(cardNumber);
-		serial.println();
-		serial.println(packetsFound++); 
+		//serial.println();
+		//serial.println(packetsFound++);
+   //delay(100);
 	}
+
 }

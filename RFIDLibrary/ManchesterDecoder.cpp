@@ -39,7 +39,7 @@
 #include <Arduino.h>
 
 #include "ManchesterDecoder.h"
-//#define DEBUG_DECODING
+#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
   //#define debug Serial
   #define debug SerialUSB
@@ -161,7 +161,8 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 	mPIN_demodout = demodPin;
   mPIN_shutdown = shutdownPin;
   mChipType = iChip;
-	pinMode(mPIN_demodout,INPUT);
+
+  pinMode(mPIN_demodout,INPUT);
   //Shutdown pin
   pinMode(mPIN_shutdown,OUTPUT);
   if(mChipType == EM4095)
@@ -174,6 +175,7 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
     digitalWrite(mPIN_shutdown,1);
     pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
   }
+  //WakeupFromSleep();
  
 	gPIN_demodout = mPIN_demodout;
 	intCount = 0;
@@ -182,6 +184,27 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 	lastValue = -1;
 	secondLastValue = -1;
 	ResetMachine();
+}
+int ManchesterDecoder::PrepareForSleep(void)
+{
+  return 0;
+}
+int ManchesterDecoder::WakeupFromSleep(void)
+{
+  pinMode(mPIN_demodout,INPUT);
+  //Shutdown pin
+  pinMode(mPIN_shutdown,OUTPUT);
+  if(mChipType == EM4095)
+  {
+    //digitalWrite(mPIN_shutdown,0);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    //digitalWrite(mPIN_shutdown,1);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+  return 0;
 }
 int ManchesterDecoder::DisableChip(void)
 {
@@ -221,9 +244,20 @@ int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t ti
 	intCount++;
 	return 0;
 }
-void ManchesterDecoder::EnableMonitoring(void)
+int ManchesterDecoder::EnableMonitoring(void)
 {
 	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
+  if(mChipType == EM4095)
+  {
+    digitalWrite(mPIN_shutdown,0);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    digitalWrite(mPIN_shutdown,1);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+  return 0;
 }
 int ManchesterDecoder::GetBitIntCount(void)
 {
