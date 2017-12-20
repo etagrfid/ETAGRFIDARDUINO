@@ -246,17 +246,17 @@ int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t ti
 }
 int ManchesterDecoder::EnableMonitoring(void)
 {
-	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
   if(mChipType == EM4095)
   {
-    digitalWrite(mPIN_shutdown,0);
+    digitalWrite(mPIN_shutdown,0); //power on
     pinMode(mPIN_demodout,INPUT); 
   }
   else if(mChipType == U2270B)
   {  
-    digitalWrite(mPIN_shutdown,1);
+    digitalWrite(mPIN_shutdown,1); //power on
     pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
   }
+  attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
   return 0;
 }
 int ManchesterDecoder::GetBitIntCount(void)

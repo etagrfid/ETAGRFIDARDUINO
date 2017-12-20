@@ -44,17 +44,22 @@
 
 
 //ETAG BOARD
-#define serial SerialUSB
+/*#define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);*/
 
 
-/*#define serial Serial
+#define serial Serial
 #define ShutdownPin 7 //test board
 #define demodOut 8 
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);*/
-int TC3_flag = 0;
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);
+
+void AttemptRFIDReading();
+void TCconfig();
+void sleep();
+
+int gTC3_flag = 0;
 
 void sleep()
 {
@@ -102,7 +107,7 @@ void TCconfig()
 
     TC3->COUNT8.CTRLA.reg = TC_CTRLA_MODE_COUNT8 |
             TC_CTRLA_RUNSTDBY |
-            TC_CTRLA_PRESCALER_DIV1024;
+            TC_CTRLA_PRESCALER_DIV256;
     while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
 
 
@@ -122,51 +127,44 @@ void TC3_Handler()
     if (TC3->COUNT8.INTFLAG.bit.OVF) 
     {
         TC3->COUNT8.INTFLAG.bit.OVF = 1;
-        TC3_flag = true;
+        gTC3_flag = true;
     }
 }
 void setup() 
 {
+  TCconfig();
 	pinMode(PIN_LED,OUTPUT);
 	digitalWrite(PIN_LED,LOW);
 	serial.begin(115200);
 	delay(500);
 	serial.println("running");
-
-	//gManDecoder.EnableMonitoring();
-  /*delay(2000);
-  rtc.begin();
-  rtc.setTime(0,00,00);
-  rtc.setDate(24,9,16);
-  rtc.setAlarmTime(00,00,10);			//sleep for ten seconds
-  rtc.enableAlarm(rtc.MATCH_HHMMSS);
-  rtc.attachInterrupt(ISRWakeup);
-  digitalWrite(ShutdownPin, LOW);        //Turn off RFID chip to reduce power
-  rtc.standbyMode();						//Put chip to sleep
-  digitalWrite(ShutdownPin, HIGH);		//turn RFID chip back on*/
+  delay(2000);
+  sleep();
 }
 
 void loop() 
 {
-  if (TC3_flag) 
+  if (gTC3_flag) 
   {
     digitalWrite(LED_PIN,HIGH);
     delay(100);
     digitalWrite(LED_PIN,LOW);
     serial.begin(115200);
     delay(50);
-    serial.println("wakeup");
+    static int wakeups = 0;
+    serial.print("wakeup ");
+    serial.println(wakeups++);
+    delay(50);
     gManDecoder.EnableMonitoring(); //re-enable the interrupt 
     delay(1000);
     AttemptRFIDReading();
-    TC3_flag = 0;
+    gTC3_flag = 0;
   }
   gManDecoder.DisableChip();
   sleep();
 }
  void AttemptRFIDReading()
  { 
-
 	serial.print("Check: ");
 	serial.println(gManDecoder.GetBitIntCount());
 	static int packetsFound = 0;
