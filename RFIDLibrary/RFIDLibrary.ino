@@ -41,13 +41,11 @@
 
 #define LED_PIN 13
 
-
-
 //ETAG BOARD
 #define ShutdownPin 8
 #define demodOut 30
 ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
-#define USING_USB
+//#define USING_USB
 
 
 /*#define ShutdownPin 7 //test board
@@ -57,7 +55,8 @@ ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);*/
 #ifdef USING_USB
 #define serial SerialUSB
 #else
-#define serial Serial
+#define serial Serial1
+//#define serial Serial //ONLY for M0 Pro
 #endif
 
 void AttemptRFIDReading();
@@ -71,7 +70,7 @@ void sleep()
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 
 #ifdef USING_USB
-    if (USB->DEVICE.FSMSTATUS.bit.FSMSTATE == USB_FSMSTATUS_FSMSTATE_SUSPEND_Val) 
+    //if (USB->DEVICE.FSMSTATUS.bit.FSMSTATE == USB_FSMSTATUS_FSMSTATE_SUSPEND_Val) //This does not work...
     {
         USBDevice.detach();
 
@@ -113,7 +112,7 @@ void TCconfig()
 
     TC3->COUNT8.CTRLA.reg = TC_CTRLA_MODE_COUNT8 |
             TC_CTRLA_RUNSTDBY |
-            TC_CTRLA_PRESCALER_DIV1024;
+            TC_CTRLA_PRESCALER_DIV256;
     while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
 
 
@@ -138,6 +137,7 @@ void TC3_Handler()
 }
 void setup() 
 {
+  USBDevice.detach();
   TCconfig();
 	pinMode(PIN_LED,OUTPUT);
 	digitalWrite(PIN_LED,LOW);
@@ -167,6 +167,7 @@ void loop()
     gTC3_flag = 0;
   }
   gManDecoder.DisableChip();
+  delay(50);//let serial buffer go out
   sleep();
 }
  void AttemptRFIDReading()
