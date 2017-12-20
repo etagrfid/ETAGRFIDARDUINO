@@ -44,16 +44,21 @@
 
 
 //ETAG BOARD
-/*#define serial SerialUSB
 #define ShutdownPin 8
 #define demodOut 30
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);*/
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+#define USING_USB
 
 
-#define serial Serial
-#define ShutdownPin 7 //test board
+/*#define ShutdownPin 7 //test board
 #define demodOut 8 
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);*/
+
+#ifdef USING_USB
+#define serial SerialUSB
+#else
+#define serial Serial
+#endif
 
 void AttemptRFIDReading();
 void TCconfig();
@@ -65,9 +70,9 @@ void sleep()
 {
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
 
-    /*if (USB->DEVICE.FSMSTATUS.bit.FSMSTATE == USB_FSMSTATUS_FSMSTATE_SUSPEND_Val) 
+#ifdef USING_USB
+    if (USB->DEVICE.FSMSTATUS.bit.FSMSTATE == USB_FSMSTATUS_FSMSTATE_SUSPEND_Val) 
     {
-
         USBDevice.detach();
 
         __WFI();
@@ -76,8 +81,9 @@ void sleep()
         USB->DEVICE.CTRLB.bit.UPRSM = 0x01u;
         while (USB->DEVICE.CTRLB.bit.UPRSM);
     }
-    else*/
+#else
       __WFI();
+#endif
 }
 
 void TCconfig()
@@ -107,7 +113,7 @@ void TCconfig()
 
     TC3->COUNT8.CTRLA.reg = TC_CTRLA_MODE_COUNT8 |
             TC_CTRLA_RUNSTDBY |
-            TC_CTRLA_PRESCALER_DIV256;
+            TC_CTRLA_PRESCALER_DIV1024;
     while (TC3->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY);
 
 
