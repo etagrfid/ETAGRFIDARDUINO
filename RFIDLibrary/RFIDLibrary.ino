@@ -139,8 +139,8 @@ void setup()
 {
   USBDevice.detach();
   TCconfig();
-	pinMode(PIN_LED,OUTPUT);
-	digitalWrite(PIN_LED,LOW);
+	//pinMode(PIN_LED,OUTPUT);
+	//digitalWrite(PIN_LED,LOW);
 	serial.begin(115200);
 	delay(500);
 	serial.println("running");
@@ -152,9 +152,9 @@ void loop()
 {
   if (gTC3_flag) 
   {
-    digitalWrite(LED_PIN,HIGH);
-    delay(100);
-    digitalWrite(LED_PIN,LOW);
+    //digitalWrite(LED_PIN,HIGH);
+    //delay(100);
+    //digitalWrite(LED_PIN,LOW);
     serial.begin(115200);
     delay(50);
     static int wakeups = 0;
