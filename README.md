@@ -1,3 +1,8 @@
+THIS IS THE ETAG LOW POWER TEST PROGRAM
+LED will blink after 10 seconds for ~10 seconds and then sleep
+External button will wakeup also
+USB will be disabled and re-enabled (serial data output will occur if connected)
+
 ## ETAGRFIDARDUINO
 ### Arduino software to log RFID tag scans
 #### How to install:
