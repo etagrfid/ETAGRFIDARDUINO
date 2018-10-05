@@ -52,7 +52,7 @@
 #define ShutdownPin 7 //test board
 #define demodOut 8 */
 
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::U2270B);
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);
 
 void setup() 
 {

@@ -188,7 +188,6 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 int ManchesterDecoder::DisableChip(void)
 {
   detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
-
 }
 void ManchesterDecoder::ResetMachine()
 {
@@ -237,7 +236,9 @@ int ManchesterDecoder::CheckForPacket(void)
 int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
 	if (dDataCount < 512)
-		return -1;
+	{
+	    return -1;
+	}
     
 	detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
   #ifdef DEBUG_DECODING
