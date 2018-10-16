@@ -42,7 +42,6 @@
 
 #include "ManchesterDecoder.h"
 
-#define MinIntSizeForCheck 64
 
 
 //#define DEBUG_DECODING
@@ -51,7 +50,7 @@
   #define debug SerialUSB
 
   #include <stdarg.h>
-  void dprintf(char *fmt, ... ){
+  void dprintf(const char *fmt, ... ){
   	char buf[128]; // resulting string limited to 128 chars
   	va_list args;
   	va_start (args, fmt );
@@ -167,14 +166,15 @@ int CheckManchesterParity(EM4100Data *xd)
 }
 
 
-ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip) 
+ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip, int mincount) 
 {
+  mMinNumberOfInts = mincount;
 	mPIN_demodout = demodPin;
   mPIN_shutdown = shutdownPin;
   mChipType = iChip;
 	pinMode(mPIN_demodout,INPUT);
   //Shutdown pin
-  pinMode(mPIN_shutdown,OUTPUT);
+  /*pinMode(mPIN_shutdown,OUTPUT);
   if(mChipType == EM4095)
   {
     digitalWrite(mPIN_shutdown,0);
@@ -184,8 +184,9 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
   {  
     digitalWrite(mPIN_shutdown,1);
     pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
-  }
- 
+  }*/
+  ChipOff();
+  
 	gPIN_demodout = mPIN_demodout;
 	intCount = 0;
 	lastTime = 0;
@@ -194,13 +195,58 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 	secondLastValue = -1;
 	ResetMachine();
 }
-int ManchesterDecoder::DisableChip(void)
+#define POWER_ON  1
+#define POWER_OFF 2
+void ManchesterDecoder::ChipPower(int state)
+{
+  pinMode(mPIN_shutdown,OUTPUT);//need to check this as input uses less power
+  int pin = 0;
+  if(mChipType == EM4095)
+  {
+    if(state == POWER_ON)
+      pin = 0;
+    else 
+      pin = 1;
+    digitalWrite(mPIN_shutdown,pin);
+    pinMode(mPIN_demodout,INPUT); 
+  }
+  else if(mChipType == U2270B)
+  {  
+    if(state == POWER_ON)
+      pin = 1;
+    else 
+      pin = 0;
+    digitalWrite(mPIN_shutdown,pin);
+    pinMode(mPIN_demodout, INPUT_PULLUP);  //Use pullup resistors for U2270B
+  }
+}
+void ManchesterDecoder::ChipOn(void)
+{
+  ResetMachine();
+  ChipPower(POWER_ON);
+}
+void ManchesterDecoder::ChipOff(void)
+{
+  ResetMachine();
+  ChipPower(POWER_OFF);
+}
+int ManchesterDecoder::DisableMonitoring(void)
 {
   detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+  ChipOff();
+
   return 0;
 }
 void ManchesterDecoder::ResetMachine()
 {
+  //for(unsigned int i=0;i<sizeof(tDiffPinBuf);i++)
+  //  tDiffPinBuf[i] = 0;
+	//memset((uint8_t*)tDiffPinBuf,0,sizeof(tDiffPinBuf));
+  /*dWriteIndex = 0;
+  dReadIndex = 0;
+  dDataCount = 0;*/
+	
+	
 	headerFound = 0;
 	headerCount = 0;
 	syncState = 0;
@@ -226,6 +272,9 @@ int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t ti
 }
 void ManchesterDecoder::EnableMonitoring(void)
 {
+	//ChipOn();
+  //delay(1);
+	//ResetMachine();
 	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
   // Set the XOSC32K to run in standby
   SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
@@ -242,27 +291,28 @@ int ManchesterDecoder::GetBitIntCount(void)
 }
 int ManchesterDecoder::CheckForPacket(void)
 {
-	if (dDataCount >= MinIntSizeForCheck)
+	if (dDataCount >= mMinNumberOfInts)
 	{
-    #ifdef DEBUG_DECODING
+    //#ifdef DEBUG_DECODING
     printf("Data available\n");
-    #endif
+    //#endif
 		return	1;
 	}
 	return 0;		
 }
 int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
-	if (dDataCount < MinIntSizeForCheck)
+	if (dDataCount < mMinNumberOfInts)
 	{
 	    return -1;
 	}
-    
-	detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+
+	DisableMonitoring();
+	//detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
   #ifdef DEBUG_DECODING
   printf("Attempt read\n");
   #endif
-	for (int i = 0; i < MinIntSizeForCheck; i++)
+	for (int i = 0; i < nBitRingBufLength; i++)
 	{
 		uint8_t dByte = tDiffPinBuf[dReadIndex++];
 		if (dReadIndex >= nBitRingBufLength)
@@ -296,7 +346,8 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 
 				for(int i=0;i<10;i++)
 				{
-					printf("[%X] "NIBBLE_TO_BINARY_PATTERN", %d, %d\n", testData->lines[i].data_nibb,NIBBLE_TO_BINARY(testData->lines[i].data_nibb),testData->lines[i].parity,has_even_parity(testData->lines[i].data_nibb,4));
+					//gcc has some issue with this line
+					//printf("[%X] "NIBBLE_TO_BINARY_PATTERN", %d, %d\n", testData->lines[i].data_nibb,NIBBLE_TO_BINARY(testData->lines[i].data_nibb),testData->lines[i].parity,has_even_parity(testData->lines[i].data_nibb,4));
 					/*debug.print("[");
 					debug.print(testData->lines[i].data_nibb,HEX);
 					debug.print("] ");

@@ -67,6 +67,7 @@ void dprintf(char *fmt, ... );
 void INT_manchesterDecode(void);
 int has_even_parity(uint16_t x,int datasize);
 int CheckManchesterParity(EM4100Data *xd);
+#define MinIntSizeForCheck 128
 
 class ManchesterDecoder
 {
@@ -102,15 +103,20 @@ private:
 	volatile uint8_t		dataBinWrite;
 	volatile uint8_t		dataBufWrite;
 	volatile uint8_t		dataBinCount;
+  int                 mMinNumberOfInts=MinIntSizeForCheck;
+ 
 public:
-	ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip);
+	ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipType iChip,int minintnum);
   int CheckForPacket(void); 
   int DecodeAvailableData(EM4100Data *bufout);
-  int DisableChip(void);
+  int DisableMonitoring(void);
   void EnableMonitoring(void);
   int GetBitIntCount(void);
-
+  void ChipOn(void);
+  void ChipOff(void); 
 private:
+  void ChipPower(int state);
+  
 	void ResetMachine();
 	int UpdateMachine(int8_t currPin, uint32_t currTime,int8_t timeClass);
 	int UpdateMachineUsingClass(int8_t currPin, int8_t timeClass);

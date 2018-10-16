@@ -52,7 +52,10 @@
 #define ShutdownPin 7 //test board
 #define demodOut 8 */
 
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095);
+#define STANDARD_BUFFER_FILL_TIME 100 //tweak the dwell time (ms)
+
+#define CollectedBitMinCount 120 //used to tweak read speed, reduces chances of good read
+ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095,CollectedBitMinCount);
 
 void setup() 
 {
@@ -63,24 +66,40 @@ void setup()
 	serial.println("running");
 	gManDecoder.EnableMonitoring();
 }
-
 void loop() 
 {  
-  digitalWrite(PIN_LED,!digitalRead(PIN_LED));
+  gManDecoder.DisableMonitoring();
+  gManDecoder.ChipOff();
+  delay(1500);//simulate sleeping
+  gManDecoder.ChipOn();
+  gManDecoder.EnableMonitoring(); //re-enable the interrupt
+  delay(STANDARD_BUFFER_FILL_TIME);
+  //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
-	//static int packetsFound = 0;
-	delay(8);
+	int num_checks = 0;
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
+	if(p_ret == 0)
+  {
+    gManDecoder.EnableMonitoring(); //re-enable the interrupt
+    delay(STANDARD_BUFFER_FILL_TIME);
+    p_ret = gManDecoder.CheckForPacket();
+    serial.println("Second Check");
+    num_checks++;
+  }
 	if(p_ret > 0)
 	{
 		EM4100Data xd; //special structure for our data
 		int dec_ret = gManDecoder.DecodeAvailableData(&xd); //disable the interrupt and process available data
 		if(dec_ret <= 0)
 		{
-			gManDecoder.EnableMonitoring();
+      //enable if you want to keep collecting data
+			//gManDecoder.EnableMonitoring();
 			return;
 		}
+    num_checks++;
+    serial.print("# Checks: ");
+    serial.println(num_checks);
 		//serial.println("FOUND PACKET");
 		//serial.println("READ");
 		//look at parity rows
@@ -124,6 +143,5 @@ void loop()
 		//serial.println();
 		//serial.println(packetsFound++);
 	}
-  gManDecoder.EnableMonitoring(); //re-enable the interrupt
 
 }
