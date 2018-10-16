@@ -41,6 +41,10 @@
 
 
 #include "ManchesterDecoder.h"
+
+#define MinIntSizeForCheck 64
+
+
 //#define DEBUG_DECODING
 #ifdef DEBUG_DECODING
   //#define debug Serial
@@ -99,8 +103,13 @@ void INT_manchesterDecode(void)
 				dWriteIndex = 0;
 			dDataCount++;
 		}
+		#ifdef DEBUG_DECODING
 		else
+    {
 			volatile int x = 44;//debug only
+      x++;
+    }
+    #endif
 	}
 	lastRead = fVal;
 }
@@ -108,8 +117,8 @@ void INT_manchesterDecode(void)
 
 int has_even_parity(uint16_t x,int datasize)
 {
-	volatile unsigned int count = 0, i, b = 1;
-	for(volatile int i = 0; i < datasize; i++)
+	volatile int count = 0, i, b = 1;
+	for(i = 0; i < datasize; i++)
 	{
 		if( x & (b << i) )
 		{
@@ -188,6 +197,7 @@ ManchesterDecoder::ManchesterDecoder(uint8_t demodPin,uint8_t shutdownPin,ChipTy
 int ManchesterDecoder::DisableChip(void)
 {
   detachInterrupt(digitalPinToInterrupt(mPIN_demodout));
+  return 0;
 }
 void ManchesterDecoder::ResetMachine()
 {
@@ -217,6 +227,14 @@ int ManchesterDecoder::UpdateMachine(int8_t currPin, uint32_t currTime,int8_t ti
 void ManchesterDecoder::EnableMonitoring(void)
 {
 	attachInterrupt(digitalPinToInterrupt(mPIN_demodout), INT_manchesterDecode, CHANGE);
+  // Set the XOSC32K to run in standby
+  SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
+  
+  // Configure EIC to use GCLK1 which uses XOSC32K
+  // This has to be done after the first call to attachInterrupt()
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(GCM_EIC) |
+  GCLK_CLKCTRL_GEN_GCLK1 |
+  GCLK_CLKCTRL_CLKEN; 
 }
 int ManchesterDecoder::GetBitIntCount(void)
 {
@@ -224,7 +242,7 @@ int ManchesterDecoder::GetBitIntCount(void)
 }
 int ManchesterDecoder::CheckForPacket(void)
 {
-	if (dDataCount >= 512)
+	if (dDataCount >= MinIntSizeForCheck)
 	{
     #ifdef DEBUG_DECODING
     printf("Data available\n");
@@ -235,7 +253,7 @@ int ManchesterDecoder::CheckForPacket(void)
 }
 int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
-	if (dDataCount < 512)
+	if (dDataCount < MinIntSizeForCheck)
 	{
 	    return -1;
 	}
@@ -244,7 +262,7 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
   #ifdef DEBUG_DECODING
   printf("Attempt read\n");
   #endif
-	for (int i = 0; i < 512; i++)
+	for (int i = 0; i < MinIntSizeForCheck; i++)
 	{
 		uint8_t dByte = tDiffPinBuf[dReadIndex++];
 		if (dReadIndex >= nBitRingBufLength)
@@ -260,7 +278,7 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 			//gPacketRead = 0;
 			if(pcheck == 0)
 			{
-				int dsize = sizeof(EM4100Data);
+				//int dsize = sizeof(EM4100Data);
 				memset(bufout,0x00,sizeof(EM4100Data));
 				memcpy(bufout,(EM4100Data*)this->gClientPacketBufWithParity,sizeof(EM4100Data));//gClientPacketBufWithParity,sizeof(EM4100Data));
 				ResetMachine();

@@ -69,8 +69,8 @@ void loop()
   digitalWrite(PIN_LED,!digitalRead(PIN_LED));
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
-	static int packetsFound = 0;
-	delay(500);
+	//static int packetsFound = 0;
+	delay(8);
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret > 0)
 	{
