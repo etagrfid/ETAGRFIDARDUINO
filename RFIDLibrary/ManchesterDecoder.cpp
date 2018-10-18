@@ -300,11 +300,13 @@ int ManchesterDecoder::CheckForPacket(void)
 	}
 	return 0;		
 }
+
 int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 {
+  int ret_val = DECODE_UNKNOWN;
 	if (dDataCount < mMinNumberOfInts)
 	{
-	    return -1;
+	    return DECODE_NOT_ENOUGH_DATA;
 	}
 
 	DisableMonitoring();
@@ -338,7 +340,9 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 				//dReadIndex = 0;
 				dDataCount = 0;
 				
-				return 1;
+				ret_val = DECODE_FOUND_GOOD_PACKET;
+        //debug.println("FOUND GOOD PACKET");
+        break;
 			}
 			else
 			{
@@ -364,12 +368,17 @@ int ManchesterDecoder::DecodeAvailableData(EM4100Data *bufout)
 				delay(100);
 				debug.println("FAILED PARITY");
         #endif
-       
-			}		
-		}
-	}
+        ret_val = DECODE_PARITY_FAILED;
+			}//pcheck		
+		}//found packet
+    else
+    {
+      //ret_val = DECODE_NO_PACKET;
+      //debug.println("No Packet");
+    }
+	}//for loop
 	dDataCount = 0;
-	return 0;
+	return ret_val;
 }
 
 int ManchesterDecoder::UpdateMachineUsingClass(int8_t currPin, int8_t timeClass)

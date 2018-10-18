@@ -66,11 +66,54 @@ void setup()
 	serial.println("running");
 	gManDecoder.EnableMonitoring();
 }
+void PrintTagID(EM4100Data &xd)
+{
+  //serial.println("FOUND PACKET");
+    //serial.println("READ");
+    //look at parity rows
+    //use to look at binary card data
+    for(int i=0;i<11;i++)
+    {
+      serial.print("[");
+      serial.print(xd.lines[i].data_nibb,HEX);
+      serial.print("] ");
+      serial.print(xd.lines[i].data_nibb,BIN);
+      serial.print(", ");
+      serial.print(xd.lines[i].parity);
+      serial.print(", ");
+      serial.println(has_even_parity(xd.lines[i].data_nibb,4));
+    }
+    uint8_t cardID = 0;
+    uint32_t cardNumber = 0;
+    //serial.print("Data: ");
+    for(int i=0;i<10;i+=2)
+    {
+      uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
+      //use to look at hex card data
+      /*serial.print(data0,HEX);
+      if(i<8)
+        serial.print(",");*/
+      if(i<2)
+      {
+        cardID = data0;
+      }
+      else
+      {
+        cardNumber <<= 8;
+        cardNumber |= data0;
+      }
+    }
+    serial.println();
+    serial.print("Card ID: ");
+    serial.println(cardID);
+    serial.print("Card Number: ");
+    serial.println(cardNumber);
+}
 void loop() 
 {  
-  gManDecoder.DisableMonitoring();
-  gManDecoder.ChipOff();
-  delay(1500);//simulate sleeping
+  //gManDecoder.DisableMonitoring();
+  //gManDecoder.ChipOff();
+  //delay(1500);//simulate sleeping
   gManDecoder.ChipOn();
   gManDecoder.EnableMonitoring(); //re-enable the interrupt
   delay(STANDARD_BUFFER_FILL_TIME);
@@ -87,59 +130,29 @@ void loop()
     serial.println("Second Check");
     num_checks++;
   }
+	
 	if(p_ret > 0)
 	{
 		EM4100Data xd; //special structure for our data
 		int dec_ret = gManDecoder.DecodeAvailableData(&xd); //disable the interrupt and process available data
-		if(dec_ret <= 0)
-		{
-      //enable if you want to keep collecting data
-			//gManDecoder.EnableMonitoring();
-			return;
-		}
-    num_checks++;
-    serial.print("# Checks: ");
-    serial.println(num_checks);
-		//serial.println("FOUND PACKET");
-		//serial.println("READ");
-		//look at parity rows
-    //use to look at binary card data
-		for(int i=0;i<11;i++)
-		{
-			serial.print("[");
-			serial.print(xd.lines[i].data_nibb,HEX);
-			serial.print("] ");
-			serial.print(xd.lines[i].data_nibb,BIN);
-			serial.print(", ");
-			serial.print(xd.lines[i].parity);
-			serial.print(", ");
-			serial.println(has_even_parity(xd.lines[i].data_nibb,4));
-		}
-		uint8_t cardID = 0;
-		uint32_t cardNumber = 0;
-		//serial.print("Data: ");
-		for(int i=0;i<10;i+=2)
-		{
-			uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
-			//use to look at hex card data
-			/*serial.print(data0,HEX);
-			if(i<8)
-				serial.print(",");*/
-			if(i<2)
-			{
-				cardID = data0;
-			}
-			else
-			{
-				cardNumber <<= 8;
-				cardNumber |= data0;
-			}
-		}
-		serial.println();
-		serial.print("Card ID: ");
-		serial.println(cardID);
-		serial.print("Card Number: ");
-		serial.println(cardNumber);
+		if(dec_ret == DECODE_PARITY_FAILED)
+    {
+      serial.println("!Packet found, but failed parity");
+      PrintTagID(xd);
+      //return;
+    }
+    else if(dec_ret != DECODE_FOUND_GOOD_PACKET)
+    {
+      serial.println("!Packet not found");
+      return;
+    }
+    else{
+      //num_checks++;
+      //serial.print("# Checks: ");
+      //serial.println(num_checks);
+      serial.println("!Packet found good");
+      PrintTagID(xd);
+    }
 		//serial.println();
 		//serial.println(packetsFound++);
 	}

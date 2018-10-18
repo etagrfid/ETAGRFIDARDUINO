@@ -125,6 +125,10 @@ private:
 
 
 };
-
+#define DECODE_UNKNOWN            0
+#define DECODE_FOUND_GOOD_PACKET  1
+#define DECODE_NO_PACKET          2
+#define DECODE_PARITY_FAILED      4
+#define DECODE_NOT_ENOUGH_DATA    -1
 
 #endif /* MANCHESTERINCLUDE_H_ */
