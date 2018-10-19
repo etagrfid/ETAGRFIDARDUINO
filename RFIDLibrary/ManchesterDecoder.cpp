@@ -539,6 +539,12 @@ String ManchesterDecoder::GetDecodedHexNumberAsString(EM4100Data &xd)
   }
   return hexout;
 }
+uint8_t   ManchesterDecoder::GetCardIDNumber(EM4100Data &xd)
+{
+  uint8_t data0 = (xd.lines[0].data_nibb << 4) | xd.lines[1].data_nibb;
+  return data0;
+}
+
 String ManchesterDecoder::GetFullBinaryString(EM4100Data &xd)
 {
   String binout = "";

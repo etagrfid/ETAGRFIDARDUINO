@@ -114,7 +114,9 @@ public:
   int GetBitIntCount(void);
   void ChipOn(void);
   void ChipOff(void); 
-  uint32_t GetTagNumber(EM4100Data &xd);
+  uint32_t  GetTagNumber(EM4100Data &xd);
+  uint8_t   GetCardIDNumber(EM4100Data &xd);
+
   String GetDecodedHexNumberAsString(EM4100Data &xd);
   String GetFullBinaryString(EM4100Data &xd);
 

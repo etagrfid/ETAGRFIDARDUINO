@@ -151,6 +151,8 @@ void loop()
       serial.println(hextag);
       uint32_t tagNum = gManDecoder.GetTagNumber(xd);
       serial.println(tagNum);
+      uint8_t cardID = gManDecoder.GetCardIDNumber(xd);
+      serial.println(cardID);
     }
 	}
 
