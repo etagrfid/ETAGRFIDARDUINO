@@ -69,45 +69,45 @@ void setup()
 void PrintTagID(EM4100Data &xd)
 {
   //serial.println("FOUND PACKET");
-    //serial.println("READ");
-    //look at parity rows
-    //use to look at binary card data
-    for(int i=0;i<11;i++)
+  //serial.println("READ");
+  //look at parity rows
+  //use to look at binary card data
+  for(int i=0;i<11;i++)
+  {
+    serial.print("[");
+    serial.print(xd.lines[i].data_nibb,HEX);
+    serial.print("] ");
+    serial.print(xd.lines[i].data_nibb,BIN);
+    serial.print(", ");
+    serial.print(xd.lines[i].parity);
+    serial.print(", ");
+    serial.println(has_even_parity(xd.lines[i].data_nibb,4));
+  }
+  uint8_t cardID = 0;
+  uint32_t cardNumber = 0;
+  //serial.print("Data: ");
+  for(int i=0;i<10;i+=2)
+  {
+    uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
+    //use to look at hex card data
+    /*serial.print(data0,HEX);
+    if(i<8)
+    serial.print(",");*/
+    if(i<2)
     {
-      serial.print("[");
-      serial.print(xd.lines[i].data_nibb,HEX);
-      serial.print("] ");
-      serial.print(xd.lines[i].data_nibb,BIN);
-      serial.print(", ");
-      serial.print(xd.lines[i].parity);
-      serial.print(", ");
-      serial.println(has_even_parity(xd.lines[i].data_nibb,4));
+      cardID = data0;
     }
-    uint8_t cardID = 0;
-    uint32_t cardNumber = 0;
-    //serial.print("Data: ");
-    for(int i=0;i<10;i+=2)
+    else
     {
-      uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
-      //use to look at hex card data
-      /*serial.print(data0,HEX);
-      if(i<8)
-        serial.print(",");*/
-      if(i<2)
-      {
-        cardID = data0;
-      }
-      else
-      {
-        cardNumber <<= 8;
-        cardNumber |= data0;
-      }
+      cardNumber <<= 8;
+      cardNumber |= data0;
     }
-    serial.println();
-    serial.print("Card ID: ");
-    serial.println(cardID);
-    serial.print("Card Number: ");
-    serial.println(cardNumber);
+  }
+  serial.println();
+  serial.print("Card ID: ");
+  serial.println(cardID);
+  serial.print("Card Number: ");
+  serial.println(cardNumber);
 }
 void loop() 
 {  
@@ -120,7 +120,6 @@ void loop()
   //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
-	int num_checks = 0;
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
 	if(p_ret == 0)
   {
@@ -128,7 +127,6 @@ void loop()
     delay(STANDARD_BUFFER_FILL_TIME);
     p_ret = gManDecoder.CheckForPacket();
     serial.println("Second Check");
-    num_checks++;
   }
 	
 	if(p_ret > 0)
@@ -139,7 +137,6 @@ void loop()
     {
       serial.println("!Packet found, but failed parity");
       PrintTagID(xd);
-      //return;
     }
     else if(dec_ret != DECODE_FOUND_GOOD_PACKET)
     {
@@ -147,14 +144,14 @@ void loop()
       return;
     }
     else{
-      //num_checks++;
-      //serial.print("# Checks: ");
-      //serial.println(num_checks);
       serial.println("!Packet found good");
-      PrintTagID(xd);
+      //PrintTagID(xd);
+      String bintag = gManDecoder.GetFullBinaryString(xd);
+      String hextag = gManDecoder.GetDecodedHexNumberAsString(xd);
+      serial.println(hextag);
+      uint32_t tagNum = gManDecoder.GetTagNumber(xd);
+      serial.println(tagNum);
     }
-		//serial.println();
-		//serial.println(packetsFound++);
 	}
 
 }

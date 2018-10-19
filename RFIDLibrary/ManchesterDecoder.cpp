@@ -529,3 +529,43 @@ int ManchesterDecoder::HandleIntManchester(int8_t fVal, int8_t fTimeClass)
 
 	return this->UpdateMachineUsingClass(fVal, fTimeClass);
 }
+
+String ManchesterDecoder::GetDecodedHexNumberAsString(EM4100Data &xd)
+{
+  String hexout = "";
+  for(int i=0;i<11;i++)
+  {
+    hexout += String(xd.lines[i].data_nibb,HEX);
+  }
+  return hexout;
+}
+String ManchesterDecoder::GetFullBinaryString(EM4100Data &xd)
+{
+  String binout = "";
+  for(int i=0;i<11;i++)
+  {
+    binout+= String(xd.lines[i].data_nibb,BIN);
+    binout+= String(xd.lines[i].parity);
+    binout+= String(has_even_parity(xd.lines[i].data_nibb,4));
+  }
+  return binout;
+}
+uint32_t ManchesterDecoder::GetTagNumber(EM4100Data &xd)
+{
+  uint8_t cardID = 0;
+  uint32_t cardNumber = 0;
+  for(int i=0;i<10;i+=2)
+  {
+    uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
+    if(i<2)
+    {
+      cardID = data0;
+    }
+    else
+    {
+      cardNumber <<= 8;
+      cardNumber |= data0;
+    }
+  }
+  return cardNumber;
+}
