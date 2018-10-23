@@ -67,6 +67,8 @@ void dprintf(char *fmt, ... );
 void INT_manchesterDecode(void);
 int has_even_parity(uint16_t x,int datasize);
 int CheckManchesterParity(EM4100Data *xd);
+void PrintTagID(EM4100Data &xd);
+
 #define MinIntSizeForCheck 128
 
 class ManchesterDecoder

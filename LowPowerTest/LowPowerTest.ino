@@ -31,34 +31,15 @@
  *
  ****************************************************************************/
 /*
- * RFIDLibrary.ino
+ * ETAG_LowPowerTest.ino
  *
- * Created: 11/14/2017 7:26:06 PM
+ * Created: 10/1/2018 3:16:26 PM
  *  Author: Jay Wilhelm jwilhelm@ohio.edu
+ *	Includes low power testing
  */ 
+
 #include <Arduino.h>
-#include "ManchesterDecoder.h"
 #include <RTCZero.h>
-
-#define BUTTON_PIN  3 //5 for the xplained D21
-#define pLED 13
-
-//#define EM4095
-//ETAG BOARD
-#define serial SerialUSB
-#define ShutdownPin 8
-#define demodOut 30
-
-/*#define serial Serial
-#define ShutdownPin 7 //test board
-#define demodOut 8 */
-
-#define STANDARD_BUFFER_FILL_TIME 100 //tweak the dwell time (ms)
-
-#define CollectedBitMinCount 120 //used to tweak read speed, reduces chances of good read
-ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095,CollectedBitMinCount);
-
-#define GENERIC_CLOCK_GENERATOR_MAIN      (0u)
 
 /* Create an rtc object */
 RTCZero rtc;
@@ -70,6 +51,9 @@ const byte hours = 16;
 const byte day = 25;
 const byte month = 9;
 const byte year = 15;
+
+//#define LED_BUILTIN 31	//48 for the xplained D21
+#define BUTTON_PIN	3	//5 for the xplained D21
 void ding()
 {
 	volatile int x = 43;
@@ -165,106 +149,144 @@ void LowPower_SetGPIO(void)
 	//powered from USB -> 11 mA (PowerDebugger)
 }
 
-
-void setup() 
+// the setup function runs once when you press reset or power the board
+void setup()
 {
 	LowPower_SetUSBMode(); //has to be here or something else upsets low power
-
-  pinMode(PIN_LED,OUTPUT);
-  digitalWrite(PIN_LED,HIGH);
-  
-	serial.begin(115200);
-	serial.println("running");
-
-  pinMode(BUTTON_PIN,INPUT);
-  attachInterrupt(BUTTON_PIN, ding, RISING);
-  rtc.begin(); // initialize RTC 24H format
-  SetRTC_AlarmDelta();
-  
-  rtc.attachInterrupt(alarmMatch);
-  // Set the XOSC32K to run in standby
-  SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
-  
-  // Configure EIC to use GCLK1 which uses XOSC32K
-  // This has to be done after the first call to attachInterrupt()
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(GCM_EIC) |
-  GCLK_CLKCTRL_GEN_GCLK1 |
-  GCLK_CLKCTRL_CLKEN;   
-  
-	//gManDecoder.EnableMonitoring();
-}
-
-void PowerDownSleepWait()
-{
-  LowPower_SetGPIO();
-  LowPower_SetUSBMode();
-
-  //digitalWrite(LED_BUILTIN,digitalRead(5));
-  SysTick->CTRL  &= ~SysTick_CTRL_ENABLE_Msk;
-  
-  SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-  __DSB();
-  __WFI();
-  
-  SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
-  
-  SysTick->CTRL  |= SysTick_CTRL_ENABLE_Msk;
-  delay(50);
-  USBDevice.init();
-  USBDevice.attach();
-}
-void loop() 
-{  
-  gManDecoder.DisableMonitoring();
-  gManDecoder.ChipOff();  
-  SetRTC_AlarmDelta();
-  PowerDownSleepWait();
-  //exited out of sleep and back running
-  
-  gManDecoder.ChipOn();
-  gManDecoder.EnableMonitoring(); //re-enable the interrupt
-  digitalWrite(LED_BUILTIN, LOW);   // turn the LED on 
-
-  delay(2500);//allow USB to show up
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off 
-
-  delay(STANDARD_BUFFER_FILL_TIME);
-  //digitalWrite(PIN_LED,!digitalRead(PIN_LED));
-  serial.print("Check: ");
-  serial.println(gManDecoder.GetBitIntCount());
-	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
-	if(p_ret == 0)
-  {
-    gManDecoder.EnableMonitoring(); //re-enable the interrupt
-    delay(STANDARD_BUFFER_FILL_TIME);
-    p_ret = gManDecoder.CheckForPacket();
-    serial.println("Second Check");
-  }
 	
-	if(p_ret > 0)
+	
+	// initialize digital pin LED_BUILTIN as an output.
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(LED_BUILTIN, HIGH);
+	//pinMode(BUTTON_PIN,INPUT_PULLUP);
+	pinMode(BUTTON_PIN,INPUT);
+	
+	attachInterrupt(BUTTON_PIN, ding, RISING);
+	
+	rtc.begin(); // initialize RTC 24H format
+
+	SetRTC_AlarmDelta();
+	
+	rtc.attachInterrupt(alarmMatch);
+	
+	
+	// Set the XOSC32K to run in standby
+	SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
+	
+	// Configure EIC to use GCLK1 which uses XOSC32K
+	// This has to be done after the first call to attachInterrupt()
+	GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(GCM_EIC) |
+	GCLK_CLKCTRL_GEN_GCLK1 |
+	GCLK_CLKCTRL_CLKEN;		
+}
+#define GENERIC_CLOCK_GENERATOR_MAIN      (0u)
+
+// the loop function runs over and over again forever
+void loop()
+{
+	LowPower_SetGPIO();
+	GCLK->GENDIV.reg = GCLK_GENDIV_ID( GENERIC_CLOCK_GENERATOR_MAIN ) ; // Generic Clock Generator 0
+
+	while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
 	{
-		EM4100Data xd; //special structure for our data
-		int dec_ret = gManDecoder.DecodeAvailableData(&xd); //disable the interrupt and process available data
-		if(dec_ret == DECODE_PARITY_FAILED)
-    {
-      serial.println("!Packet found, but failed parity");
-      PrintTagID(xd);
-    }
-    else if(dec_ret != DECODE_FOUND_GOOD_PACKET)
-    {
-      serial.println("!Packet not found");
-      return;
-    }
-    else{
-      serial.println("!Packet found good");
-      //PrintTagID(xd);
-      String bintag = gManDecoder.GetFullBinaryString(xd);
-      String hextag = gManDecoder.GetDecodedHexNumberAsString(xd);
-      serial.println(hextag);
-      uint32_t tagNum = gManDecoder.GetTagNumber(xd);
-      serial.println(tagNum);
-      uint8_t cardID = gManDecoder.GetCardIDNumber(xd);
-      serial.println(cardID);
-    }
+		/* Wait for synchronization */
 	}
+
+	/* Write Generic Clock Generator 0 configuration */
+	GCLK->GENCTRL.reg = GCLK_GENCTRL_ID( GENERIC_CLOCK_GENERATOR_MAIN ) | // Generic Clock Generator 0
+	GCLK_GENCTRL_SRC_OSCULP32K | 
+	//GCLK_GENCTRL_SRC_OSC8M |
+	//GCLK_GENCTRL_SRC_XOSC32K |
+	//GCLK_GENCTRL_SRC_DFLL48M | // Selected source is DFLL 48MHz
+	//                      GCLK_GENCTRL_OE | // Output clock to a pin for tests
+	GCLK_GENCTRL_IDC | // Set 50/50 duty cycle
+	GCLK_GENCTRL_GENEN ;
+
+	while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+	{
+		/* Wait for synchronization */
+	}
+	
+	//turn off the DFLL?
+	SYSCTRL->DFLLCTRL.reg = 0x00;//SYSCTRL_DFLLCTRL_MODE | /* Enable the closed loop mode */
+	//SYSCTRL_DFLLCTRL_WAITLOCK |
+	//SYSCTRL_DFLLCTRL_QLDIS ; /* Disable Quick lock */
+	SYSCTRL->DFLLCTRL.reg &= ~SYSCTRL_DFLLCTRL_ENABLE ;
+	
+	//digitalWrite(LED_BUILTIN,digitalRead(5));
+	SysTick->CTRL  &= ~SysTick_CTRL_ENABLE_Msk;
+	
+	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+	__DSB();
+	__WFI();
+	
+	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+	 /* Enable the DFLL */
+	 SYSCTRL->DFLLCTRL.reg = SYSCTRL_DFLLCTRL_MODE | /* Enable the closed loop mode */
+	 SYSCTRL_DFLLCTRL_WAITLOCK |
+	 SYSCTRL_DFLLCTRL_QLDIS ; /* Disable Quick lock */
+	   while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLRDY) == 0 )
+	   {
+		   /* Wait for synchronization */
+	   }
+	 SYSCTRL->DFLLCTRL.reg |= SYSCTRL_DFLLCTRL_ENABLE ;
+
+	 while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLLCKC) == 0 ||
+	 (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLLCKF) == 0 )
+	 {
+		 /* Wait for locks flags */
+	 }
+
+
+	 while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLRDY) == 0 )
+	 {
+		 /* Wait for synchronization */
+	 }
+	 
+	GCLK->GENDIV.reg = GCLK_GENDIV_ID( GENERIC_CLOCK_GENERATOR_MAIN ) ; // Generic Clock Generator 0
+
+	while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+	{
+		/* Wait for synchronization */
+	}
+
+	/* Write Generic Clock Generator 0 configuration */
+	GCLK->GENCTRL.reg = GCLK_GENCTRL_ID( GENERIC_CLOCK_GENERATOR_MAIN ) | // Generic Clock Generator 0
+	//GCLK_GENCTRL_SRC_OSC8M |
+	//GCLK_GENCTRL_SRC_XOSC32K |
+	GCLK_GENCTRL_SRC_DFLL48M | // Selected source is DFLL 48MHz
+	//                      GCLK_GENCTRL_OE | // Output clock to a pin for tests
+	GCLK_GENCTRL_IDC | // Set 50/50 duty cycle
+	GCLK_GENCTRL_GENEN ;
+
+	while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+	{
+		/* Wait for synchronization */
+	}
+	
+	
+	
+	SysTick->CTRL  |= SysTick_CTRL_ENABLE_Msk;
+
+
+
+
+	delay(50);
+	USBDevice.init();
+	USBDevice.attach();
+	
+	int count = 0;
+	while(1)
+	{
+		digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (HIGH is the voltage level)
+		delay(250);                       // wait for a second
+		digitalWrite(LED_BUILTIN, HIGH);    // turn the LED off by making the voltage LOW
+		delay(250);                       // wait for a second
+		SerialUSB.print("Hello ");
+		SerialUSB.println(count);
+		if(count++ > 25)
+			break;
+	}
+	SetRTC_AlarmDelta();
+	LowPower_SetUSBMode();
 }

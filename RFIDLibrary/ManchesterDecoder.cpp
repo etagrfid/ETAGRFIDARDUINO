@@ -45,9 +45,10 @@
 
 
 //#define DEBUG_DECODING
+
+#define debug SerialUSB
 #ifdef DEBUG_DECODING
   //#define debug Serial
-  #define debug SerialUSB
 
   #include <stdarg.h>
   void dprintf(const char *fmt, ... ){
@@ -558,8 +559,43 @@ String ManchesterDecoder::GetFullBinaryString(EM4100Data &xd)
 }
 uint32_t ManchesterDecoder::GetTagNumber(EM4100Data &xd)
 {
+  //uint8_t cardID = 0;
+  uint32_t cardNumber = 0;
+  for(int i=0;i<10;i+=2)
+  {
+    uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
+    if(i<2)
+    {
+      //cardID = data0;
+    }
+    else
+    {
+      cardNumber <<= 8;
+      cardNumber |= data0;
+    }
+  }
+  return cardNumber;
+}
+void PrintTagID(EM4100Data &xd)
+{
+  //serial.println("FOUND PACKET");
+  //serial.println("READ");
+  //look at parity rows
+  //use to look at binary card data
+  for(int i=0;i<11;i++)
+  {
+    debug.print("[");
+    debug.print(xd.lines[i].data_nibb,HEX);
+    debug.print("] ");
+    debug.print(xd.lines[i].data_nibb,BIN);
+    debug.print(", ");
+    debug.print(xd.lines[i].parity);
+    debug.print(", ");
+    debug.println(has_even_parity(xd.lines[i].data_nibb,4));
+  }
   uint8_t cardID = 0;
   uint32_t cardNumber = 0;
+  //serial.print("Data: ");
   for(int i=0;i<10;i+=2)
   {
     uint8_t data0 = (xd.lines[i].data_nibb << 4) | xd.lines[i+1].data_nibb;
@@ -573,5 +609,9 @@ uint32_t ManchesterDecoder::GetTagNumber(EM4100Data &xd)
       cardNumber |= data0;
     }
   }
-  return cardNumber;
+  debug.println();
+  debug.print("Card ID: ");
+  debug.println(cardID);
+  debug.print("Card Number: ");
+  debug.println(cardNumber);
 }
