@@ -168,11 +168,86 @@ void ETAGLowPower::LowPower_SetGPIO(void)
 	//powered from USB -> 580 uA (PowerDebugger)
 	//powered from USB -> 11 mA (PowerDebugger)
 }
+void ETAGLowPower::LowPower_DisableClocks()
+{
+  GCLK->GENDIV.reg = GCLK_GENDIV_ID( GENERIC_CLOCK_GENERATOR_MAIN ) ; // Generic Clock Generator 0
+
+  while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+  {
+    /* Wait for synchronization */
+  }
+
+  /* Write Generic Clock Generator 0 configuration */
+  GCLK->GENCTRL.reg = GCLK_GENCTRL_ID( GENERIC_CLOCK_GENERATOR_MAIN ) | // Generic Clock Generator 0
+  GCLK_GENCTRL_SRC_OSCULP32K | 
+  //GCLK_GENCTRL_SRC_OSC8M |
+  //GCLK_GENCTRL_SRC_XOSC32K |
+  //GCLK_GENCTRL_SRC_DFLL48M | // Selected source is DFLL 48MHz
+  //                      GCLK_GENCTRL_OE | // Output clock to a pin for tests
+  GCLK_GENCTRL_IDC | // Set 50/50 duty cycle
+  GCLK_GENCTRL_GENEN ;
+
+  while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+  {
+    /* Wait for synchronization */
+  }
+  
+  //turn off the DFLL?
+  SYSCTRL->DFLLCTRL.reg = 0x00;//SYSCTRL_DFLLCTRL_MODE | /* Enable the closed loop mode */
+  //SYSCTRL_DFLLCTRL_WAITLOCK |
+  //SYSCTRL_DFLLCTRL_QLDIS ; /* Disable Quick lock */
+  SYSCTRL->DFLLCTRL.reg &= ~SYSCTRL_DFLLCTRL_ENABLE ;
+}
+void ETAGLowPower::LowPower_EnableClocks()
+{
+   /* Enable the DFLL */
+   SYSCTRL->DFLLCTRL.reg = SYSCTRL_DFLLCTRL_MODE | /* Enable the closed loop mode */
+   SYSCTRL_DFLLCTRL_WAITLOCK |
+   SYSCTRL_DFLLCTRL_QLDIS ; /* Disable Quick lock */
+     while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLRDY) == 0 )
+     {
+       /* Wait for synchronization */
+     }
+   SYSCTRL->DFLLCTRL.reg |= SYSCTRL_DFLLCTRL_ENABLE ;
+
+   while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLLCKC) == 0 ||
+   (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLLCKF) == 0 )
+   {
+     /* Wait for locks flags */
+   }
+
+
+   while ( (SYSCTRL->PCLKSR.reg & SYSCTRL_PCLKSR_DFLLRDY) == 0 )
+   {
+     /* Wait for synchronization */
+   }
+   
+  GCLK->GENDIV.reg = GCLK_GENDIV_ID( GENERIC_CLOCK_GENERATOR_MAIN ) ; // Generic Clock Generator 0
+
+  while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+  {
+    /* Wait for synchronization */
+  }
+
+  /* Write Generic Clock Generator 0 configuration */
+  GCLK->GENCTRL.reg = GCLK_GENCTRL_ID( GENERIC_CLOCK_GENERATOR_MAIN ) | // Generic Clock Generator 0
+  //GCLK_GENCTRL_SRC_OSC8M |
+  //GCLK_GENCTRL_SRC_XOSC32K |
+  GCLK_GENCTRL_SRC_DFLL48M | // Selected source is DFLL 48MHz
+  //                      GCLK_GENCTRL_OE | // Output clock to a pin for tests
+  GCLK_GENCTRL_IDC | // Set 50/50 duty cycle
+  GCLK_GENCTRL_GENEN ;
+
+  while ( GCLK->STATUS.reg & GCLK_STATUS_SYNCBUSY )
+  {
+    /* Wait for synchronization */
+  }
+}
 void ETAGLowPower::PowerDownSleepWait()
 {
   LowPower_SetGPIO();
   LowPower_SetUSBMode();
-
+  LowPower_DisableClocks();
   //digitalWrite(LED_BUILTIN,digitalRead(5));
   SysTick->CTRL  &= ~SysTick_CTRL_ENABLE_Msk;
   
@@ -181,7 +256,8 @@ void ETAGLowPower::PowerDownSleepWait()
   __WFI();
   
   SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
-  
+  LowPower_EnableClocks();
+
   SysTick->CTRL  |= SysTick_CTRL_ENABLE_Msk;
   delay(50);
   USBDevice.init();
