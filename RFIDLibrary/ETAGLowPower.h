@@ -48,7 +48,6 @@ public:
 ETAGLowPower();
 static void LowPowerSetup();
 static void LowPower_SetUSBMode();
-static void SetRTC_AlarmDelta();
 static void LowPower_SetGPIO();
 static void PowerDownSleepWait();
 static void LowPower_DisableClocks();

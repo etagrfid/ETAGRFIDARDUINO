@@ -36,31 +36,11 @@
  * Created: 10/23/2018 1:16:26 PM
  *  Author: Jay Wilhelm jwilhelm@ohio.edu
  */ 
+#include <Arduino.h>
 #include "ETAGLowPower.h"
 #define GENERIC_CLOCK_GENERATOR_MAIN      (0u)
-#include <RTCZero.h>
 
-/* Create an rtc object */
-RTCZero rtc;
-const byte seconds = 0;
-const byte minutes = 0;
-const byte hours = 16;
 
-/* Change these values to set the current initial date */
-const byte day = 25;
-const byte month = 9;
-const byte year = 15;
-void ding()
-{
-	volatile int x = 43;
-	x++;
-}
-void alarmMatch()
-{
-	volatile int x = 43;
-	x++;
-	//Serial.println("Alarm Match!");
-}
 ETAGLowPower::ETAGLowPower()
 {
   
@@ -68,8 +48,6 @@ ETAGLowPower::ETAGLowPower()
 void ETAGLowPower::LowPowerSetup()
 {
 	LowPower_SetUSBMode(); //has to be here or something else upsets low power
-
-	rtc.begin(); // initialize RTC 24H format
 }
 
 
@@ -93,26 +71,7 @@ void ETAGLowPower::LowPower_SetUSBMode()
 	PORT->Group[0].PINCFG[PIN_PA25G_USB_DP].bit.PMUXEN = 0;
 	//end USB disable
 }
-void ETAGLowPower::SetRTC_AlarmDelta(void)
-{
-	rtc.setTime(hours, minutes, seconds);
-	rtc.setDate(day, month, year);
 
-	rtc.setAlarmTime(16, 0, 10);
-	rtc.enableAlarm(rtc.MATCH_HHMMSS);
-	  
-	rtc.attachInterrupt(alarmMatch);
-	// Set the XOSC32K to run in standby
-	SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
-
-	// Configure EIC to use GCLK1 which uses XOSC32K
-	// This has to be done after the first call to attachInterrupt()
-	GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(GCM_EIC) |
-	GCLK_CLKCTRL_GEN_GCLK1 |
-	GCLK_CLKCTRL_CLKEN;   
-  
-	//gManDecoder.EnableMonitoring();
-}
 
 void ETAGLowPower::LowPower_SetGPIO(void)
 {

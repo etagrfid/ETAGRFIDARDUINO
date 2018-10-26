@@ -39,6 +39,7 @@
 #include <Arduino.h>
 #include "ManchesterDecoder.h"
 #include "ETAGLowPower.h"
+#include <RTCZero.h>
 
 #define BUTTON_PIN  3 //5 for the xplained D21
 #define pLED 13
@@ -58,10 +59,42 @@
 #define CollectedBitMinCount 120 //used to tweak read speed, reduces chances of good read
 ManchesterDecoder gManDecoder(demodOut,ShutdownPin,ManchesterDecoder::EM4095,CollectedBitMinCount);
 
+/* Create an rtc object */
+RTCZero rtc;
+const byte seconds = 0;
+const byte minutes = 0;
+const byte hours = 16;
 
+/* Change these values to set the current initial date */
+const byte day = 25;
+const byte month = 9;
+const byte year = 15;
+void alarmMatch()
+{
+  //do nothing at alarm but cause wakeup
+}
+void SetRTC_AlarmDelta(void)
+{
+  rtc.setTime(hours, minutes, seconds);
+  rtc.setDate(day, month, year);
+
+  rtc.setAlarmTime(16, 0, 10);
+  rtc.enableAlarm(rtc.MATCH_HHMMSS);
+    
+  rtc.attachInterrupt(alarmMatch);
+  // Set the XOSC32K to run in standby
+  SYSCTRL->XOSC32K.bit.RUNSTDBY = 1;
+
+  // Configure EIC to use GCLK1 which uses XOSC32K
+  // This has to be done after the first call to attachInterrupt()
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(GCM_EIC) |
+  GCLK_CLKCTRL_GEN_GCLK1 |
+  GCLK_CLKCTRL_CLKEN;   
+  
+  //gManDecoder.EnableMonitoring();
+}
 void setup() 
 {
-
   pinMode(PIN_LED,OUTPUT);
   digitalWrite(PIN_LED,HIGH);
   
@@ -70,7 +103,9 @@ void setup()
 
   //pinMode(BUTTON_PIN,INPUT);
   //attachInterrupt(BUTTON_PIN, ding, RISING);
+  
   ETAGLowPower::LowPowerSetup();
+  rtc.begin(); // initialize RTC 24H format
 }
 
 
@@ -78,7 +113,15 @@ void loop()
 {  
   gManDecoder.DisableMonitoring();
   gManDecoder.ChipOff();  
-  ETAGLowPower::SetRTC_AlarmDelta();
+  SetRTC_AlarmDelta();
+  //enter low power mode
+  //configured board used GPIO pins
+  //slows the clocks
+  //disables the systick (causes wakeups)
+  //sleep
+  //wakeup
+  //power the clocks back up
+  //setup USB 
   ETAGLowPower::PowerDownSleepWait();
   //exited out of sleep and back running
   
@@ -94,13 +137,6 @@ void loop()
   serial.print("Check: ");
   serial.println(gManDecoder.GetBitIntCount());
 	int p_ret = gManDecoder.CheckForPacket();//check if there is data in the interrupt buffer
-	if(p_ret == 0)
-  {
-    gManDecoder.EnableMonitoring(); //re-enable the interrupt
-    delay(STANDARD_BUFFER_FILL_TIME);
-    p_ret = gManDecoder.CheckForPacket();
-    serial.println("Second Check");
-  }
 	
 	if(p_ret > 0)
 	{
