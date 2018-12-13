@@ -47,6 +47,11 @@ ETAGLowPower::ETAGLowPower()
 }
 void ETAGLowPower::LowPowerSetup()
 {
+  //reset pin configuration to overwrite wiring.c -> init() called in main()
+  for (uint32_t ul = 0 ; ul < NUM_DIGITAL_PINS ; ul++ ) {
+    pinMode( ul, OUTPUT ) ;
+  }
+  
 	LowPower_SetUSBMode(); //has to be here or something else upsets low power
 }
 
@@ -208,6 +213,20 @@ void ETAGLowPower::PowerDownSleepWait()
   LowPower_SetUSBMode();
   LowPower_DisableClocks();
   //digitalWrite(LED_BUILTIN,digitalRead(5));
+
+  //PORT configuration to match Atmel Sleep Demo
+  PORT->Group[0].PINCFG[2].reg = 0x40;
+  PORT->Group[0].PINCFG[6].reg = 0x40;
+  PORT->Group[0].PINCFG[7].reg = 0x40;
+  PORT->Group[0].PINCFG[8].reg = 0x40;
+  PORT->Group[0].PINCFG[12].reg = 0x40;
+  PORT->Group[0].PINCFG[15].reg = 0x06;
+  PORT->Group[0].PINCFG[21].reg = 0x40;
+  PORT->Group[0].PINCFG[22].reg = 0x03;
+  PORT->Group[0].PINCFG[23].reg = 0x03;
+  PORT->Group[0].PINCFG[27].reg = 0x40;
+  PORT->Group[0].PINCFG[28].reg = 0x40;
+  
   SysTick->CTRL  &= ~SysTick_CTRL_ENABLE_Msk;
   
   SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
