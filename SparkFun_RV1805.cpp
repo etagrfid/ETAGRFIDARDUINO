@@ -194,7 +194,8 @@ uint8_t RV1805::status(void)
 char* RV1805::stringDateUSA()
 {
 	static char date[11]; //Max of mm/dd/yyyy with \0 terminator
-	sprintf(date, "%02d/%02d/20%02d", BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_YEAR]));
+	//sprintf(date, "%02d/%02d/20%02d", BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_YEAR]));
+	sprintf(date, "%02d/%02d/%02d", BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_YEAR]));
 	return(date);
 }
 
@@ -202,7 +203,8 @@ char* RV1805::stringDateUSA()
 char*  RV1805::stringDate()
 {
 	static char date[11]; //Max of dd/mm/yyyy with \0 terminator
-	sprintf(date, "%02d/%02d/20%02d", BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_YEAR]));
+	//sprintf(date, "%02d/%02d/20%02d", BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_YEAR]));
+	sprintf(date, "%02d/%02d/%02d", BCDtoDEC(_time[TIME_DATE]), BCDtoDEC(_time[TIME_MONTH]), BCDtoDEC(_time[TIME_YEAR]));
 	return(date);
 }
 
@@ -527,8 +529,7 @@ void RV1805::enableLowPower()
 	writeRegister(RV1805_OUT_CTRL, 0x30); //Disable WDI input, Set bit 4, Disable RST in sleep, Disable CLK/INT in sleep
 
 	writeRegister(RV1805_CONF_KEY, RV1805_CONF_OSC); //Unlock again
-	writeRegister(RV1805_OSC_CTRL, 0b00000100); //OSEL=1, ACAL=00, BOS=0, FOS=0, IOPW=1, OFIE=0, ACIE=0  
-	//writeRegister(RV1805_OSC_CTRL, 0b11111100); //OSEL=1, ACAL=11, BOS=1, FOS=1, IOPW=1, OFIE=0, ACIE=0	
+	writeRegister(RV1805_OSC_CTRL, 0b11111100); //OSEL=1, ACAL=11, BOS=1, FOS=1, IOPW=1, OFIE=0, ACIE=0	
 	//Use RC Oscillator all the time (to save moar power)
 	//Autocalibrate every 512 seconds to get to 22nA mode
 	//Switch to RC Oscillator when powered by VBackup
