@@ -1,7 +1,8 @@
 ## ETAGRFIDARDUINO
 ### Arduino software to log RFID tag scans
 #### How to install:
-- Currently this repository requires you to manually move the library into your 'libraries' folder in arduino.
+- If you downloaded a zipped version of this repositoru, you will probably need to rename the folder to match the name of the .ino file (minus the ".ino"). So the folder should be renamed to "ETAG_4095"
+- The library files (e.g. "SparkFun_RV1805.cpp" and "SparkFun_RV1805.h") need to be in the same folder as the .ino file or they can be manually moved into your 'libraries' folder in arduino (Ususally somethign like ...Documents/Arduino/Libraries.
 - in future versions the library will be availible through the library manager in Arduino
 #### Examples:
 - Combined:
